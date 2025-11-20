@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\ProductController;
@@ -9,47 +10,54 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\UserManagementController; // 👈 NEW
 
-Route::middleware('api')->group(function () {
+/*
+|--------------------------------------------------------------------------
+| Public routes (no auth)
+|--------------------------------------------------------------------------
+*/
 
-    /**
-     *  EMPLOYEES (Full CRUD)
-     */
+Route::post('auth/login', [AuthController::class, 'login']);
+
+/*
+|--------------------------------------------------------------------------
+| Protected routes (auth:sanctum)
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware('auth:sanctum')->group(function () {
+
+    // Auth
+    Route::get('auth/me', [AuthController::class, 'me']);
+    Route::post('auth/logout', [AuthController::class, 'logout']);
+
+    // 🔹 User management (roles: admin / manager / staff)
+    Route::get('users', [UserManagementController::class, 'index']);   // list users
+    Route::post('users', [UserManagementController::class, 'store']);  // create user
+
+    // Employees
     Route::apiResource('employees', EmployeeController::class);
 
-    /**
-     *  ATTENDANCE SYSTEM
-     */
+    // Attendance
     Route::get('attendances', [AttendanceController::class, 'index']);
     Route::post('attendance/check-in', [AttendanceController::class, 'checkIn']);
-    Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);
+    Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']); // 👈 fixed name
 
-    /**
-     *  SUPPLIERS (Full CRUD)
-     */
+    // Suppliers
     Route::apiResource('suppliers', SupplierController::class);
 
-    /**
-     *  PRODUCTS (Full CRUD)
-     */
+    // Products
     Route::apiResource('products', ProductController::class);
 
-    /**
-     *  STOCK MOVEMENTS (Only index + store)
-     *  No update/delete/show needed
-     */
+    // Stock movements (index + store)
     Route::apiResource('stock-movements', StockMovementController::class)
         ->only(['index', 'store']);
 
-    /**
-     *  EXPENSES (Only index + store)
-     */
+    // Expenses (index + store)
     Route::apiResource('expenses', ExpenseController::class)
         ->only(['index', 'store']);
 
-    /**
-     *  DASHBOARD OVERVIEW
-     *  For PFA Presentation & Frontend Dashboard
-     */
+    // Dashboard
     Route::get('dashboard/overview', [DashboardController::class, 'overview']);
 });

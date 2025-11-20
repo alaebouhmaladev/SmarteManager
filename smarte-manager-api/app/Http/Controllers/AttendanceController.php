@@ -8,12 +8,26 @@ use Carbon\Carbon;
 
 class AttendanceController extends Controller
 {
-    // Check-in
+    /**
+     * Employee check-in
+     * Admin/Manager can also check-in another employee.
+     */
     public function checkIn(Request $request)
     {
         $request->validate([
             'employee_id' => 'required|exists:employees,id',
         ]);
+
+        // Prevent multiple check-ins without checkout
+        $existing = Attendance::where('employee_id', $request->employee_id)
+            ->whereNull('check_out')
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'message' => 'Employee already checked in. Checkout first.'
+            ], 400);
+        }
 
         $attendance = Attendance::create([
             'employee_id' => $request->employee_id,
@@ -24,18 +38,31 @@ class AttendanceController extends Controller
         return response()->json($attendance);
     }
 
-    // Check-out
+    /**
+     * Employee check-out
+     * Finds the latest active check-in automatically.
+     */
     public function checkOut(Request $request)
     {
         $request->validate([
-            'attendance_id' => 'required|exists:attendances,id',
+            'employee_id' => 'required|exists:employees,id',
         ]);
 
-        $attendance = Attendance::findOrFail($request->attendance_id);
+        // Find open attendance (no check_out)
+        $attendance = Attendance::where('employee_id', $request->employee_id)
+            ->whereNull('check_out')
+            ->latest('check_in')
+            ->first();
+
+        if (!$attendance) {
+            return response()->json([
+                'message' => 'No active check-in found for this employee.'
+            ], 404);
+        }
 
         $attendance->check_out = Carbon::now();
 
-        // Calculate hours
+        // Calculate total worked hours
         $attendance->total_hours = Carbon::parse($attendance->check_in)
             ->diffInMinutes(Carbon::now()) / 60;
 
@@ -44,11 +71,15 @@ class AttendanceController extends Controller
         return response()->json($attendance);
     }
 
-    // All attendance
+    /**
+     * List all attendance records
+     */
     public function index()
     {
         return response()->json(
-            Attendance::with('employee')->orderBy('id', 'DESC')->get()
+            Attendance::with('employee')
+                ->orderBy('id', 'DESC')
+                ->get()
         );
     }
 }

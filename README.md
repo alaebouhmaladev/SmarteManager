@@ -1,206 +1,187 @@
-# Smarte Manager  
-### HR, Attendance, Inventory & Expense Management System  
-**Laravel API + Vue.js SPA + MySQL**
+# 📘 SmarteManager — HR, Attendance, Inventory & Expense Management System
+
+SmarteManager is a modern, modular management system built for restaurants, cafés, retail stores, and small businesses.
+It centralizes:
+
+- Employee management
+- Attendance & time tracking
+- Inventory & stock control
+- Supplier management
+- Expense tracking
+- Dashboard analytics
+- Role-based access (Admin / Manager / Staff)
+- Secure REST API using Laravel Sanctum
+
+## 🚀 Key Features
+
+### 🧑‍💼 HR & Time Tracking Module
+* **Employee CRUD:** Full management of employee records (Create, Read, Update, Delete).
+* **Check-In / Check-Out:** Integrated time clock functionality for attendance tracking.
+* **Automated Calculation:** Automatic computation of total hours worked.
+* **Attendance History:** Detailed daily and monthly attendance logs.
+* **Payroll Management:** Automated monthly salary calculation based on hours and rates.
+* **Data Export:** Export functionality for reports (Coming Soon).
+
+### 📦 Inventory Module
+* **Product Management:** easy management of products and raw ingredients.
+* **Real-Time Stock:** Live view of current inventory levels.
+* **Stock Movement:** Track all stock entries (purchases) and exits (sales/usage).
+* **Cost Analysis:** Automatic calculation of the average cost of goods.
+* **Smart Alerts:** Notifications for minimum stock levels to prevent outages.
+* **Valuation:** Instant view of the total monetary value of the stock.
+
+### 💰 Expense Module
+* **Categorized Expenses:** Organize all business expenses by custom categories.
+* **Detailed Tracking:** Record amount, date, and supplier for every transaction.
+* **Monthly Reports:** Generate summaries of expenses per month.
+* **Category Management:** Create and modify expense categories (Optional).
+
+### 🏪 Supplier Module
+* **Vendor Management:** Centralized database for all supplier profiles.
+* **Transaction History:** Complete history of purchases and expenses linked to specific suppliers.
+* **Contact Details:** Store full information including name, contact person, phone numbers, etc.
 
 ---
 
-## 🧩 Description du Projet
+## 🚀 Tech Stack
 
-Smarte Manager est une application web full-stack conçue pour les restaurants, cafés, fast-foods, foodtrucks, pâtisseries, et toute petite ou moyenne entreprise.
+### Backend
+- Laravel 11
+- PHP 8.2+
+- Laravel Sanctum
+- MySQL / MariaDB
+- Eloquent ORM
+- REST API
 
-Elle permet de gérer :
+### Frontend (optional)
+- Vue.js 3
+- Vite
+- Axios
+- Pinia
 
-- Les employés  
-- Le pointage (heures d’entrée et sortie)  
-- Le calcul automatique des heures travaillées  
-- La génération de salaires  
-- L’inventaire et les produits  
-- Les mouvements de stock (entrées/sorties)  
-- Les dépenses par catégorie  
-- Les fournisseurs  
-- Un tableau de bord complet
+## 📂 Backend Project Structure
 
-Le backend est développé en **Laravel** (API REST), le frontend en **Vue.js**, et la base de données en **MySQL**.
-
----
-
-## 🚀 Fonctionnalités Principales
-
-### 🧑‍💼 Module RH & Pointage
-- CRUD employés  
-- Check-In / Check-Out  
-- Calcul automatique des heures travaillées  
-- Historique quotidien & mensuel  
-- Calcul des salaires mensuels  
-- Export des données (future feature)
-
----
-
-### 📦 Module Inventaire
-- Gestion des produits / ingrédients  
-- Stock en temps réel  
-- Entrées / Sorties du stock  
-- Calcul du coût moyen  
-- Alertes de stock minimum  
-- Valeur totale du stock
-
----
-
-### 💰 Module Dépenses
-- Dépenses classées par catégorie  
-- Montant, date, fournisseur  
-- Rapport mensuel  
-- Gestion des catégories (optionnel)
-
----
-
-### 🏪 Module Fournisseurs
-- Gestion des fournisseurs  
-- Historique des achats et dépenses  
-- Informations complètes : nom, contact, téléphone, etc.
-
----
-
-## 🛠️ Technologies Utilisées
-
-### 🔧 Backend (Laravel API)
-- Laravel 10  
-- Laravel Sanctum (token-based auth)  
-- API Resources  
-- Middlewares  
-- Validation Requests  
-- Migrations & Seeders  
-
-### 🎨 Frontend (Vue.js 3)
-- Vue Router  
-- Vue 3 Composition API  
-- Pinia (state management)  
-- Axios (HTTP requests)  
-- TailwindCSS / Bootstrap  
-- Component-based UI  
-
-### 🗄 Base de données
-- MySQL  
-- Relations One-to-Many  
-- Relations Many-to-One  
-- Index optimisés  
-
----
-
-## 🧱 Architecture du Projet
-
-### Schéma Global
-```
-Vue.js (Frontend SPA)
-      ⇩ Axios
-Laravel API (Backend REST)
-      ⇩
-   MySQL DB
-```
-
-### Structure Backend
 ```
 app/
-  Http/
-    Controllers/Api/
-    Middleware/
-  Models/
+ ├── Http/
+ │    ├── Controllers/
+ │    ├── Middleware/
+ ├── Models/
+ └── Providers/
+
 routes/
-  api.php
+ ├── api.php
+ └── web.php
+
 database/
-  migrations/
+ ├── migrations/
+ ├── seeders/
+ └── factories/
 ```
 
-### Structure Frontend
+## 🔐 Authentication (Laravel Sanctum)
+
+### Login
 ```
-src/
-  api/
-  components/
-  layouts/
-  router/
-  store/
-  views/
+POST /api/auth/login
 ```
 
----
+Body:
+```json
+{
+  "email": "admin@example.com",
+  "password": "password"
+}
+```
 
-## 📡 API Endpoints
+### Logout
+```
+POST /api/auth/logout
+```
 
-### 🔐 Auth
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/login` | Connexion |
-| GET | `/api/me` | Profil utilisateur |
-| POST | `/api/logout` | Déconnexion |
+### Get Current User
+```
+GET /api/auth/me
+```
 
-### 🧑‍💼 Employees
-| Method | Endpoint |
-|--------|----------|
-| GET | `/api/employees` |
-| POST | `/api/employees` |
-| PUT | `/api/employees/{id}` |
-| DELETE | `/api/employees/{id}` |
+Add token:
+```
+Authorization: Bearer YOUR_TOKEN
+```
 
-### ⏱ Attendance
-| Method | Endpoint |
-|--------|----------|
-| POST | `/api/attendances/check-in` |
-| POST | `/api/attendances/check-out` |
+## 👥 User Roles
 
-### 🏪 Inventory
-| Method | Endpoint |
-|--------|----------|
-| GET | `/api/products` |
-| POST | `/api/products` |
-| POST | `/api/stock-movements` |
+| Role    | Permissions                 |
+|---------|------------------------------|
+| Admin   | Full control                |
+| Manager | Manage major modules        |
+| Staff   | Attendance + dashboard only |
 
-### 💸 Expenses
-| Method | Endpoint |
-|--------|----------|
-| GET | `/api/expenses` |
-| POST | `/api/expenses` |
+## 📦 Modules Overview
 
----
+### Employees
+CRUD operations.
 
-## 🧪 Installation & Setup
+### Attendance
+Check-in/check-out.
 
-### Backend — Laravel
-```bash
+### Products
+Inventory products.
+
+### Suppliers
+Manage suppliers.
+
+### Stock Movements
+Track stock in/out.
+
+### Expenses
+Track business expenses.
+
+### Dashboard
+Global analytics.
+
+## 🛠 Installation Guide
+
+```
+git clone https://github.com/yourusername/smarte-manager-api.git
+cd smarte-manager-api
 composer install
 cp .env.example .env
 php artisan key:generate
-php artisan migrate --seed
+php artisan migrate
+```
+
+### Create Admin User
+```
+php artisan tinker
+User::create([...])
+```
+
+### Start Server
+```
 php artisan serve
 ```
 
-### Frontend — Vue.js
-```bash
-npm install
-npm run dev
-```
+## 📡 API Usage Example
+
+Use Bearer Token in Postman for all protected routes.
+
+## 🏁 Conclusion
+
+A complete backend for HR, attendance, inventory, expenses, suppliers, dashboard, and admin roles.
+
+
+## 📌 Future Improvements
+- PDF export  
+- CRM module  
+- Customer order management system  
+- Multi-store support  
+- Mobile application  
 
 ---
 
-## 🎯 Objectifs du Projet
-- Centraliser la gestion RH et Inventaire  
-- Automatiser les tâches répétitives  
-- Offrir un outil rapide et moderne pour PME  
-- Avoir une application scalable et réutilisable  
-
+## 👤 Created By
+**ALAE BOUHMALA**  
+Project – SmarteManager   
 ---
 
-## 📌 Améliorations Futures
-- Export PDF  
-- Module CRM  
-- Système de commandes clients  
-- Multi-magasin  
-- Application mobile  
-
----
-
-## 👤 Réalisé par
-**Nabil**  
-Projet Fin d’Année – Smarte Manager  
-Encadrant : *À compléter*
-
----
