@@ -10,7 +10,6 @@ class AttendanceController extends Controller
 {
     /**
      * Employee check-in
-     * Admin/Manager can also check-in another employee.
      */
     public function checkIn(Request $request)
     {
@@ -18,7 +17,7 @@ class AttendanceController extends Controller
             'employee_id' => 'required|exists:employees,id',
         ]);
 
-        // Prevent multiple check-ins without checkout
+        // Prevent multiple open check-ins
         $existing = Attendance::where('employee_id', $request->employee_id)
             ->whereNull('check_out')
             ->first();
@@ -31,8 +30,8 @@ class AttendanceController extends Controller
 
         $attendance = Attendance::create([
             'employee_id' => $request->employee_id,
-            'work_date' => Carbon::now()->toDateString(),
-            'check_in' => Carbon::now(),
+            'work_date'   => Carbon::now()->toDateString(),
+            'check_in'    => Carbon::now(),
         ]);
 
         return response()->json($attendance);
@@ -40,7 +39,6 @@ class AttendanceController extends Controller
 
     /**
      * Employee check-out
-     * Finds the latest active check-in automatically.
      */
     public function checkOut(Request $request)
     {
@@ -48,21 +46,18 @@ class AttendanceController extends Controller
             'employee_id' => 'required|exists:employees,id',
         ]);
 
-        // Find open attendance (no check_out)
         $attendance = Attendance::where('employee_id', $request->employee_id)
             ->whereNull('check_out')
             ->latest('check_in')
             ->first();
 
-        if (!$attendance) {
+        if (! $attendance) {
             return response()->json([
                 'message' => 'No active check-in found for this employee.'
             ], 404);
         }
 
         $attendance->check_out = Carbon::now();
-
-        // Calculate total worked hours
         $attendance->total_hours = Carbon::parse($attendance->check_in)
             ->diffInMinutes(Carbon::now()) / 60;
 
@@ -72,7 +67,7 @@ class AttendanceController extends Controller
     }
 
     /**
-     * List all attendance records
+     * List all attendance records from latest to first
      */
     public function index()
     {
@@ -81,5 +76,197 @@ class AttendanceController extends Controller
                 ->orderBy('id', 'DESC')
                 ->get()
         );
+    }
+
+    /**
+     * Attendance history by employee & date range
+     * GET /api/attendances/employee/{employee}?from=2025-11-01&to=2025-11-30
+     */
+    public function byEmployee(Request $request, $employeeId)
+    {
+        $request->validate([
+            'from' => 'nullable|date',
+            'to'   => 'nullable|date',
+        ]);
+
+        $from = $request->query('from')
+            ? Carbon::parse($request->query('from'))->startOfDay()
+            : Carbon::now()->startOfMonth();
+
+        $to = $request->query('to')
+            ? Carbon::parse($request->query('to'))->endOfDay()
+            : Carbon::now()->endOfMonth();
+
+        $records = Attendance::with('employee')
+            ->where('employee_id', $employeeId)
+            ->whereBetween('work_date', [$from->toDateString(), $to->toDateString()])
+            ->orderBy('work_date', 'DESC')
+            ->get();
+
+        return response()->json([
+            'employee_id' => (int) $employeeId,
+            'from'        => $from->toDateString(),
+            'to'          => $to->toDateString(),
+            'attendances' => $records,
+        ]);
+    }
+
+    /**
+     * Daily attendance for all employees
+     * GET /api/attendances/daily?date=2025-11-20
+     * If no date → today
+     */
+    public function daily(Request $request)
+    {
+        $request->validate([
+            'date' => 'nullable|date',
+        ]);
+
+        $date = $request->query('date')
+            ? Carbon::parse($request->query('date'))->toDateString()
+            : Carbon::now()->toDateString();
+
+        $records = Attendance::with('employee')
+            ->whereDate('work_date', $date)
+            ->orderBy('check_in')
+            ->get();
+
+        return response()->json([
+            'date'        => $date,
+            'attendances' => $records,
+        ]);
+    }
+
+    /**
+     * Monthly summary: total hours per employee
+     * GET /api/attendances/monthly-summary?month=2025-11
+     */
+    public function monthlySummary(Request $request)
+    {
+        $request->validate([
+            'month' => 'nullable|date_format:Y-m', // e.g. 2025-11
+        ]);
+
+        $monthParam = $request->query('month') ?? Carbon::now()->format('Y-m');
+        [$year, $month] = explode('-', $monthParam);
+
+        $records = Attendance::with('employee')
+            ->whereYear('work_date', $year)
+            ->whereMonth('work_date', $month)
+            ->get();
+
+        // Group by employee and sum hours
+        $summary = $records->groupBy('employee_id')->map(function ($items) {
+            $employee   = $items->first()->employee;
+            $totalHours = $items->sum('total_hours');
+
+            return [
+                'employee_id'   => $employee->id,
+                'employee_name' => $employee->first_name . ' ' . $employee->last_name,
+                'total_hours'   => round($totalHours, 2),
+            ];
+        })->values();
+
+        return response()->json([
+            'month'   => $monthParam,
+            'summary' => $summary,
+        ]);
+    }
+
+    /**
+     * Export monthly attendance as CSV
+     * GET /api/attendances/export-csv?month=2025-11
+     */
+    public function exportMonthlyCsv(Request $request)
+    {
+        $request->validate([
+            'month' => 'nullable|date_format:Y-m',
+        ]);
+
+        $monthParam = $request->query('month') ?? Carbon::now()->format('Y-m');
+        [$year, $month] = explode('-', $monthParam);
+
+        $records = Attendance::with('employee')
+            ->whereYear('work_date', $year)
+            ->whereMonth('work_date', $month)
+            ->orderBy('work_date')
+            ->get();
+
+        $filename = "attendance_{$monthParam}.csv";
+
+        $headers = [
+            'Content-Type'        => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        $callback = function () use ($records) {
+            $handle = fopen('php://output', 'w');
+            // header row
+            fputcsv($handle, [
+                'Date',
+                'Employee',
+                'Check In',
+                'Check Out',
+                'Total Hours'
+            ]);
+
+            foreach ($records as $row) {
+                fputcsv($handle, [
+                    $row->work_date,
+                    $row->employee->first_name . ' ' . $row->employee->last_name,
+                    $row->check_in,
+                    $row->check_out,
+                    $row->total_hours,
+                ]);
+            }
+
+            fclose($handle);
+        };
+
+        return response()->streamDownload($callback, $filename, $headers);
+    }
+
+    public function myAttendances(Request $request)
+    {
+        $user = $request->user();
+
+        if (! $user->employee_id) {
+            return response()->json([
+                'message' => 'No employee profile linked to this user.',
+            ], 400);
+        }
+
+        $request->validate([
+            'from' => 'nullable|date',
+            'to'   => 'nullable|date',
+        ]);
+
+        $from = $request->query('from')
+            ? Carbon::parse($request->query('from'))->startOfDay()
+            : Carbon::now()->startOfMonth();
+
+        $to = $request->query('to')
+            ? Carbon::parse($request->query('to'))->endOfDay()
+            : Carbon::now()->endOfMonth();
+
+        $records = Attendance::with('employee')
+            ->where('employee_id', $user->employee_id)
+            ->whereBetween('work_date', [$from->toDateString(), $to->toDateString()])
+            ->orderBy('work_date', 'DESC')
+            ->get();
+
+        // fallback if no attendance yet    
+        $employee = $records->first()->employee
+            ?? $user->employee; 
+
+        return response()->json([
+            'employee_id'   => $user->employee_id,
+            'employee_name' => $employee
+                ? ($employee->first_name . ' ' . $employee->last_name)
+                : $user->name,
+            'from'         => $from->toDateString(),
+            'to'           => $to->toDateString(),
+            'attendances'  => $records,
+        ]);
     }
 }

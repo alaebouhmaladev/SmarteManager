@@ -4,73 +4,93 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class UserManagementController extends Controller
 {
-    // List users (admin & manager only)
-    public function index(Request $request)
+    /**
+     * List all users (admin + manager).
+     */
+    public function index()
     {
-        $authUser = $request->user();
-
-        if (!in_array($authUser->role, ['admin', 'manager'])) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
-        return User::select('id', 'name', 'email', 'role', 'created_at')->get();
+        return response()->json(
+            User::orderBy('id', 'DESC')->get()
+        );
     }
 
-    // Create user with role-based rules
+    /**
+     * Create a new user.
+     *
+     * - Admin can create: admin, manager, staff
+     * - Manager can create: staff ONLY
+     */
     public function store(Request $request)
     {
         $authUser = $request->user();
 
-        // Only admin or manager can create users
-        if (!in_array($authUser->role, ['admin', 'manager'])) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
-        // Validate incoming data
         $data = $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users,email',
             'password' => 'required|string|min:6',
-            'role'     => 'required|in:admin,manager,staff',
+            'role'     => ['required', Rule::in(['admin', 'manager', 'staff'])],
         ]);
 
-        // Apply role rules:
-        // - Admin: can create manager + staff
-        // - Manager: can create staff only
+        // If a MANAGER is creating a user → force role = 'staff'
         if ($authUser->role === 'manager' && $data['role'] !== 'staff') {
             return response()->json([
-                'message' => 'Managers can only create staff users.',
+                'message' => 'Managers can only create staff users.'
             ], 403);
         }
 
-        if ($authUser->role === 'admin' && $data['role'] === 'admin') {
-            // Optional: block creating other admins, or allow it.
-            // Here we block it for safety. Remove this if you want.
-            return response()->json([
-                'message' => 'Admin creation is restricted.',
-            ], 403);
-        }
+        // User model has "password" cast to hashed, so no manual bcrypt needed
+        $user = User::create($data);
 
-        // Because User model uses 'password' => 'hashed' cast,
-        // we just assign plain password and Laravel hashes it.
-        $user = User::create([
-            'name'     => $data['name'],
-            'email'    => $data['email'],
-            'password' => $data['password'],
-            'role'     => $data['role'],
+        return response()->json($user, 201);
+    }
+
+    /**
+     * Show a single user (admin + manager).
+     */
+    public function show(User $user)
+    {
+        return response()->json($user);
+    }
+
+    /**
+     * Update a user (admin only – route is protected).
+     */
+    public function update(Request $request, User $user)
+    {
+        $data = $request->validate([
+            'name'     => 'sometimes|string|max:255',
+            'email'    => [
+                'sometimes',
+                'email',
+                Rule::unique('users', 'email')->ignore($user->id),
+            ],
+            'password' => 'sometimes|string|min:6',
+            'role'     => ['sometimes', Rule::in(['admin', 'manager', 'staff'])],
         ]);
 
-        return response()->json([
-            'message' => 'User created successfully.',
-            'user'    => [
-                'id'    => $user->id,
-                'name'  => $user->name,
-                'email' => $user->email,
-                'role'  => $user->role,
-            ],
-        ], 201);
+        $user->update($data);
+
+        return response()->json($user);
+    }
+
+    /**
+     * Delete a user (admin only).
+     * Prevent deleting yourself.
+     */
+    public function destroy(Request $request, User $user)
+    {
+        if ($request->user()->id === $user->id) {
+            return response()->json([
+                'message' => 'You cannot delete your own account.'
+            ], 400);
+        }
+
+        $user->delete();
+
+        return response()->json(['message' => 'User deleted.']);
     }
 }

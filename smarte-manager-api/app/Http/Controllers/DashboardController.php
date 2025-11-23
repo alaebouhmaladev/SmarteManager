@@ -4,47 +4,106 @@ namespace App\Http\Controllers;
 
 use App\Models\Employee;
 use App\Models\Attendance;
-use App\Models\Expense;
 use App\Models\Product;
+use App\Models\Expense;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
-    public function overview()
+    /**
+     * GET /api/dashboard/overview
+     *
+     * Optional: ?month=YYYY-MM (default = current month)
+     */
+    public function overview(Request $request): JsonResponse
     {
-        $now = Carbon::now();
-        $startOfMonth = $now->copy()->startOfMonth()->toDateString();
-        $endOfMonth = $now->copy()->endOfMonth()->toDateString();
+        $request->validate([
+            'month' => 'nullable|date_format:Y-m',
+        ]);
 
-        // Total employees
-        $totalEmployees = Employee::count();
+        $monthParam = $request->query('month') ?? Carbon::now()->format('Y-m');
+        [$year, $month] = explode('-', $monthParam);
 
-        // Total hours worked this month
-        $totalHoursThisMonth = Attendance::whereBetween('work_date', [$startOfMonth, $endOfMonth])
-            ->sum('total_hours');
+        // ---------------- EMPLOYEES ----------------
+        $totalEmployees = Employee::where('status', 'active')->count();
 
-        // Total expenses this month
-        $totalExpensesThisMonth = Expense::whereBetween('expense_date', [$startOfMonth, $endOfMonth])
+        // ---------------- ATTENDANCE (today) ----------------
+        $today = Carbon::today()->toDateString();
+
+        $todayCheckins = Attendance::whereDate('work_date', $today)->count();
+
+        $currentlyPresent = Attendance::whereDate('work_date', $today)
+            ->whereNull('check_out')
+            ->count();
+
+        // ---------------- INVENTORY ----------------
+        // Total inventory value = SUM(current_stock * average_cost)
+        $inventoryValue = Product::select(
+                DB::raw('SUM(current_stock * average_cost) as total_value')
+            )
+            ->value('total_value') ?? 0;
+
+        $lowStockCount = Product::whereColumn('current_stock', '<=', 'min_stock')
+            ->count();
+
+        // ---------------- EXPENSES (month) ----------------
+        $monthlyExpenses = Expense::whereYear('expense_date', $year)
+            ->whereMonth('expense_date', $month)
             ->sum('amount');
 
-        // Stock value = current_stock * average_cost
-        $stockValue = Product::select(DB::raw('SUM(current_stock * average_cost) as total'))
-            ->value('total') ?? 0;
+        // ---------------- PAYROLL (month) ----------------
+        // Reuse the same logic as PayrollController: sum(hours * hourly_rate)
 
-        // Products under minimum stock
-        $lowStockProducts = Product::whereColumn('current_stock', '<', 'min_stock')
-            ->get(['id', 'name', 'current_stock', 'min_stock']);
+        $attendances = Attendance::with('employee')
+            ->whereYear('work_date', $year)
+            ->whereMonth('work_date', $month)
+            ->get();
 
+        $payrollByEmployee = $attendances->groupBy('employee_id')->map(function ($items) {
+            $employee   = $items->first()->employee;
+            $totalHours = $items->sum('total_hours');
+            $rate       = $employee->hourly_rate ?? 0;
+
+            return [
+                'employee_id'   => $employee->id,
+                'employee_name' => $employee->first_name . ' ' . $employee->last_name,
+                'total_hours'   => round($totalHours, 2),
+                'hourly_rate'   => (float) $rate,
+                'salary'        => round($totalHours * $rate, 2),
+            ];
+        })->values();
+
+        $totalPayroll = $payrollByEmployee->sum('salary');
+
+        // ---------------- RESPONSE ----------------
         return response()->json([
-            'total_employees'        => $totalEmployees,
-            'total_hours_this_month' => round($totalHoursThisMonth, 2),
-            'total_expenses_this_month' => round($totalExpensesThisMonth, 2),
-            'stock_value'            => round($stockValue, 2),
-            'low_stock_products'     => $lowStockProducts,
-            'period' => [
-                'start' => $startOfMonth,
-                'end'   => $endOfMonth,
+            'month' => $monthParam,
+
+            'employees' => [
+                'total_active' => $totalEmployees,
+            ],
+
+            'attendance' => [
+                'today_date'       => $today,
+                'today_checkins'   => $todayCheckins,
+                'currently_present'=> $currentlyPresent,
+            ],
+
+            'inventory' => [
+                'total_value'     => round($inventoryValue, 2),
+                'low_stock_count' => $lowStockCount,
+            ],
+
+            'expenses' => [
+                'total_this_month' => round($monthlyExpenses, 2),
+            ],
+
+            'payroll' => [
+                'total_this_month' => round($totalPayroll, 2),
+                'employees'        => $payrollByEmployee,
             ],
         ]);
     }
