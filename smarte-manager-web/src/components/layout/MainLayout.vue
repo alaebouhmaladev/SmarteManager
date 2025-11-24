@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-screen w-full overflow-hidden bg-sm-cream dark:bg-neutral-900">
+  <div class="flex h-screen w-full overflow-hidden bg-sm-cream">
     <!-- Sidebar -->
     <Sidebar
       :open="sidebarOpen"
@@ -11,19 +11,19 @@
     <div class="flex flex-col flex-1 overflow-hidden">
       <!-- Topbar -->
       <header
-        class="h-14 flex items-center justify-between px-4 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900"
+        class="h-14 flex items-center justify-between px-4 border-b border-neutral-200 bg-white"
       >
         <div class="flex items-center gap-3">
           <!-- Mobile sidebar toggle -->
           <button
-            class="md:hidden p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            class="md:hidden p-2 rounded-lg hover:bg-neutral-100"
             @click="sidebarOpen = true"
           >
             ☰
           </button>
 
           <!-- Page title (from route meta or fallback) -->
-          <h1 class="text-lg font-semibold text-sm-dark dark:text-neutral-50">
+          <h1 class="text-lg font-semibold text-sm-dark">
             {{ pageTitle }}
           </h1>
         </div>
@@ -45,7 +45,7 @@
       </header>
 
       <!-- PAGE CONTENT: this is where child routes render -->
-      <main class="flex-1 overflow-y-auto p-4 md:p-6 bg-sm-cream dark:bg-neutral-900">
+      <main class="flex-1 overflow-y-auto p-4 md:p-6 bg-sm-cream">
         <RouterView />
       </main>
     </div>

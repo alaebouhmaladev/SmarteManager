@@ -1,0 +1,297 @@
+{
+  "base_url": "http://127.0.0.1:8000/api",
+
+  "auth": {
+    "login": {
+      "method": "POST",
+      "url": "/auth/login",
+      "example_request": {
+        "email": "admin@example.com",
+        "password": "password123"
+      },
+      "example_response": {
+        "token": "1|xxxx",
+        "user": {
+          "id": 1,
+          "name": "Admin",
+          "email": "admin@example.com",
+          "role": "admin"
+        }
+      }
+    },
+
+    "me": {
+      "method": "GET",
+      "url": "/auth/me",
+      "headers": "Authorization: Bearer <token>"
+    },
+
+    "logout": {
+      "method": "POST",
+      "url": "/auth/logout",
+      "headers": "Authorization: Bearer <token>"
+    }
+  },
+
+  "users": {
+    "list_users": {
+      "method": "GET",
+      "url": "/users",
+      "roles": ["admin", "manager"]
+    },
+    "create_user": {
+      "method": "POST",
+      "url": "/users",
+      "roles": ["admin", "manager"],
+      "example_request": {
+        "name": "John Doe",
+        "email": "john@example.com",
+        "password": "secret123",
+        "role": "staff"
+      }
+    },
+    "show_user": {
+      "method": "GET",
+      "url": "/users/{id}",
+      "roles": ["admin", "manager"]
+    },
+    "update_user": {
+      "method": "PUT",
+      "url": "/users/{id}",
+      "roles": ["admin"]
+    },
+    "delete_user": {
+      "method": "DELETE",
+      "url": "/users/{id}",
+      "roles": ["admin"]
+    }
+  },
+
+  "employees": {
+    "list": {
+      "method": "GET",
+      "url": "/employees"
+    },
+    "create": {
+      "method": "POST",
+      "url": "/employees",
+      "example_request": {
+        "first_name": "Ali",
+        "last_name": "Hassan",
+        "phone": "0600000000",
+        "role": "waiter",
+        "hourly_rate": 30,
+        "hire_date": "2025-01-10",
+        "status": "active"
+      }
+    },
+    "show": {
+      "method": "GET",
+      "url": "/employees/{id}"
+    },
+    "update": {
+      "method": "PUT",
+      "url": "/employees/{id}"
+    },
+    "delete": {
+      "method": "DELETE",
+      "url": "/employees/{id}"
+    }
+  },
+
+  "attendance": {
+    "list_all": {
+      "method": "GET",
+      "url": "/attendances"
+    },
+    "check_in": {
+      "method": "POST",
+      "url": "/attendance/check-in",
+      "example_request": {
+        "employee_id": 3
+      }
+    },
+    "check_out": {
+      "method": "POST",
+      "url": "/attendance/check-out",
+      "example_request": {
+        "attendance_id": 10
+      }
+    },
+    "by_employee": {
+      "method": "GET",
+      "url": "/attendances/employee/{employeeId}"
+    },
+    "daily": {
+      "method": "GET",
+      "url": "/attendances/daily?date=2025-11-20"
+    },
+    "monthly_summary": {
+      "method": "GET",
+      "url": "/attendances/monthly-summary?month=2025-11"
+    },
+    "export_csv": {
+      "method": "GET",
+      "url": "/attendances/export-csv?month=2025-11"
+    },
+    "my_attendance": {
+      "method": "GET",
+      "url": "/attendances/my?month=2025-11"
+    }
+  },
+
+  "payroll": {
+    "monthly": {
+      "method": "GET",
+      "url": "/payroll/monthly?month=2025-11"
+    },
+    "export_csv": {
+      "method": "GET",
+      "url": "/payroll/export-csv?month=2025-11"
+    }
+  },
+
+  "inventory": {
+    "overview": {
+      "method": "GET",
+      "url": "/inventory/overview"
+    },
+    "low_stock": {
+      "method": "GET",
+      "url": "/inventory/low-stock"
+    },
+    "valuation": {
+      "method": "GET",
+      "url": "/inventory/valuation"
+    },
+    "average_cost": {
+      "method": "GET",
+      "url": "/inventory/average-cost"
+    },
+    "product_history": {
+      "method": "GET",
+      "url": "/inventory/product/{productId}/history"
+    }
+  },
+
+  "products": {
+    "list": {
+      "method": "GET",
+      "url": "/products"
+    },
+    "create": {
+      "method": "POST",
+      "url": "/products",
+      "example_request": {
+        "name": "Tomato Sauce",
+        "sku": "SAUCE-01",
+        "unit": "kg",
+        "current_stock": 50,
+        "min_stock": 10,
+        "average_cost": 20.5
+      }
+    },
+    "show": {
+      "method": "GET",
+      "url": "/products/{id}"
+    },
+    "update": {
+      "method": "PUT",
+      "url": "/products/{id}"
+    },
+    "delete": {
+      "method": "DELETE",
+      "url": "/products/{id}"
+    }
+  },
+
+  "stock_movements": {
+    "list": {
+      "method": "GET",
+      "url": "/stock-movements"
+    },
+    "create": {
+      "method": "POST",
+      "url": "/stock-movements",
+      "example_request": {
+        "product_id": 1,
+        "supplier_id": 2,
+        "type": "in",
+        "quantity": 10,
+        "unit_price": 20.5,
+        "movement_date": "2025-11-20",
+        "reason": "Purchase"
+      }
+    }
+  },
+
+  "suppliers": {
+    "list": {
+      "method": "GET",
+      "url": "/suppliers"
+    },
+    "create": {
+      "method": "POST",
+      "url": "/suppliers",
+      "example_request": {
+        "name": "FreshFoods",
+        "contact_name": "Youssef",
+        "phone": "0600000000",
+        "email": "contact@freshfoods.com"
+      }
+    },
+    "show": {
+      "method": "GET",
+      "url": "/suppliers/{id}"
+    },
+    "update": {
+      "method": "PUT",
+      "url": "/suppliers/{id}"
+    },
+    "delete": {
+      "method": "DELETE",
+      "url": "/suppliers/{id}"
+    },
+    "overview": {
+      "method": "GET",
+      "url": "/suppliers/{id}/overview"
+    }
+  },
+
+  "expenses": {
+    "list": {
+      "method": "GET",
+      "url": "/expenses"
+    },
+    "create": {
+      "method": "POST",
+      "url": "/expenses",
+      "example_request": {
+        "category": "Ingredients",
+        "amount": 500,
+        "expense_date": "2025-11-20",
+        "supplier_id": 2,
+        "notes": "Tomato & cheese"
+      }
+    },
+    "monthly_summary": {
+      "method": "GET",
+      "url": "/expenses/monthly-summary?month=2025-11"
+    },
+    "by_supplier": {
+      "method": "GET",
+      "url": "/expenses/by-supplier/{id}?month=2025-11"
+    },
+    "export_csv": {
+      "method": "GET",
+      "url": "/expenses/export-csv?month=2025-11"
+    }
+  },
+
+  "dashboard": {
+    "overview": {
+      "method": "GET",
+      "url": "/dashboard/overview"
+    }
+  }
+}

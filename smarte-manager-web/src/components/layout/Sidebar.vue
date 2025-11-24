@@ -1,8 +1,8 @@
 <template>
-  <!-- 🌙 Mobile overlay sidebar -->
+  <!-- Mobile sidebar -->
   <transition name="fade">
     <div v-if="open" class="fixed inset-0 z-40 flex md:hidden">
-      <!-- Backdrop -->
+      <!-- Close SideBar -->
       <div class="fixed inset-0 bg-black/40" @click="closeSidebar" />
 
       <!-- Panel -->
@@ -42,7 +42,7 @@
     </div>
   </transition>
 
-  <!-- 💻 Desktop sidebar -->
+  <!-- Web sidebar -->
   <aside
     class="hidden md:flex md:flex-col w-60 h-screen bg-sm-dark text-sm-cream"
   >
@@ -82,7 +82,7 @@ import { computed } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
-// Heroicons
+// Icons from heroicons libary
 import {
   HomeIcon,
   UsersIcon,
@@ -91,6 +91,7 @@ import {
   ArchiveBoxIcon,
   BuildingStorefrontIcon,
   BanknotesIcon,
+  CurrencyDollarIcon, 
 } from '@heroicons/vue/24/outline'
 
 const props = defineProps({
@@ -136,6 +137,12 @@ const navItems = computed(() => {
       icon: ClockIcon,
       to: { name: 'attendance' },
       children: ['my-attendance'],
+    },
+    {
+      name: 'payroll',                         
+      label: 'Payroll',
+      icon: CurrencyDollarIcon,
+      to: { name: 'payroll' },
     },
     {
       name: 'inventory',
