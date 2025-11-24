@@ -1,0 +1,12 @@
+:root {
+  /* PRIMARY COLORS */
+  --sm-primary: #FDD760;
+  --sm-dark: #252525;
+  --sm-bg: #F6F2E9;         
+  --sm-white: #FFFFFF;  
+  --sm-grey: #7D7D7D;
+
+  /* For general and for good pattern  */
+  --sm-radius: 8px;
+  --sm-shadow: 0px 2px 10px rgba(0,0,0,0.05);
+}

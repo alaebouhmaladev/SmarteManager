@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles for SmartManager */
+@layer base {
+  :root {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html,
+  body,
+  #app {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    @apply bg-sm-cream text-sm text-sm-dark;
+  }
+
+  a {
+    @apply font-medium text-sm-yellow;
+  }
+
+  a:hover {
+    @apply text-sm-dark;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-semibold text-sm-dark;
+  }
+}
+
+/* Reusable layout helpers and components */
+@layer components {
+  .sm-container {
+    @apply max-w-6xl mx-auto px-4 lg:px-6;
+  }
+
+  .sm-card {
+    @apply bg-white dark:bg-neutral-900 rounded-2xl shadow-sm-card border border-neutral-100 dark:border-neutral-800;
+  }
+
+  .sm-badge {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-sm-cream text-sm-dark;
+  }
+}
