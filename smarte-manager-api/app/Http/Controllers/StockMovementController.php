@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\StockMovement;
+use App\Models\Expense;          
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -87,6 +88,23 @@ class StockMovementController extends Controller
 
         // Save movement itself
         $movement = StockMovement::create($data);
+
+        // ✅ NEW: auto-create an expense for stock IN movements
+        if (
+            $movement->type === 'in' &&
+            $movement->supplier_id &&
+            $movement->unit_price !== null
+        ) {
+            $totalCost = $movement->quantity * $movement->unit_price;
+
+            Expense::create([
+                'category'     => 'Stock purchase In', // change label if you want
+                'amount'       => $totalCost,
+                'expense_date' => $movement->movement_date ?? Carbon::now()->toDateString(),
+                'supplier_id'  => $movement->supplier_id,
+                'notes'        => 'Auto from stock movement',
+            ]);
+        }
 
         return response()->json(
             $movement->load(['product', 'supplier']),

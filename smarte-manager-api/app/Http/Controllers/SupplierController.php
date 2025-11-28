@@ -8,22 +8,51 @@ use App\Models\StockMovement;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-
 class SupplierController extends Controller
 {
-    public function index() 
+    /**
+     * GET /api/suppliers
+     * List suppliers + aggregated totals.
+     */
+    public function index(): JsonResponse
     {
-        return Supplier::all();
+        // Base list
+        $suppliers = Supplier::orderBy('name')->get();
+
+        // Sum of EXPENSES per supplier
+        $expensesBySupplier = Expense::selectRaw('supplier_id, SUM(amount) AS total')
+            ->groupBy('supplier_id')
+            ->pluck('total', 'supplier_id'); // [supplier_id => total]
+
+        // Sum of STOCK PURCHASES (IN movements) per supplier
+        $purchasesBySupplier = StockMovement::where('type', 'in')
+            ->selectRaw('supplier_id, SUM(quantity * unit_price) AS total')
+            ->groupBy('supplier_id')
+            ->pluck('total', 'supplier_id');
+
+        // Attach totals to each supplier
+        foreach ($suppliers as $supplier) {
+            $expensesTotal  = $expensesBySupplier[$supplier->id] ?? 0;
+            $purchasesTotal = $purchasesBySupplier[$supplier->id] ?? 0;
+
+            // what you show in the “Total purchases” column
+            $supplier->total_purchases = round($purchasesTotal, 2);
+
+            // if you ever need global spend per supplier
+            $supplier->total_spent = round($expensesTotal + $purchasesTotal, 2);
+        }
+
+        return response()->json($suppliers);
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name' => 'required',
+            'name'         => 'required',
             'contact_name' => 'nullable',
-            'phone' => 'nullable',
-            'email' => 'nullable|email',
-            'address' => 'nullable',
+            'phone'        => 'nullable',
+            'email'        => 'nullable|email',
+            'address'      => 'nullable',
         ]);
 
         return Supplier::create($data);
@@ -90,5 +119,4 @@ class SupplierController extends Controller
             'purchases' => $purchases,
         ]);
     }
-
 }

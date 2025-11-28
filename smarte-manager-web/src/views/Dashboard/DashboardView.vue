@@ -29,9 +29,6 @@
         <p class="text-2xl font-semibold">
           {{ stats.employees }}
         </p>
-        <p class="text-xs text-emerald-600">
-          ▲ {{ stats.employeesChange }} since last month
-        </p>
       </div>
 
       <!-- Attendance today (numbers) -->
@@ -62,13 +59,6 @@
         <p class="text-2xl font-semibold">
           {{ formatMoney(stats.stockValuation) }}
         </p>
-        <p
-          class="text-xs"
-          :class="stats.stockChange >= 0 ? 'text-emerald-600' : 'text-red-500'"
-        >
-          {{ stats.stockChange >= 0 ? '▲' : '▼' }}
-          {{ Math.abs(stats.stockChange) }}% vs last month
-        </p>
       </div>
 
       <!-- Monthly expenses -->
@@ -82,16 +72,12 @@
         <p class="text-2xl font-semibold">
           {{ formatMoney(stats.expensesMonth.total) }}
         </p>
-        <p class="text-xs text-neutral-600">
-          {{ stats.expensesMonth.invoices }} invoices ·
-          top: {{ stats.expensesMonth.topSupplier }}
-        </p>
       </div>
     </div>
 
     <!-- Charts area -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <!-- Today attendance detailed -->
+      <!-- Attendance today (DETAIL TABLE) – unchanged -->
       <div class="sm-card p-5 lg:col-span-2">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-semibold text-sm-dark dark:text-neutral-50">
@@ -245,20 +231,35 @@ import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import PrimaryButton from '@/components/ui/PrimaryButton.vue'
 import { useDashboardStore } from '@/stores/dashboard'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const dashboardStore = useDashboardStore()
+const authStore = useAuthStore()
 
 /* ---------- Top stats ---------- */
 
 const userName = computed(() => {
-  const full = dashboardStore.me?.name || 'Nabil'
+  // Prefer auth store, then dashboard.me, fallback to "Nabil"
+  const full =
+    authStore.user?.name ||
+    dashboardStore.me?.name ||
+    'Nabil'
+
   return full.split(' ')[0]
 })
 
 const expensesBySupplier = computed(() => {
-  const expenses = dashboardStore.expenses || []
-  const suppliers = dashboardStore.suppliers || []
+  // Support different naming in store (expenses or expensesList, suppliers or suppliersList)
+  const expenses =
+    dashboardStore.expenses ||
+    dashboardStore.expensesList ||
+    []
+
+  const suppliers =
+    dashboardStore.suppliers ||
+    dashboardStore.suppliersList ||
+    []
 
   // Use current month from summary or today
   const monthStr =
@@ -269,7 +270,7 @@ const expensesBySupplier = computed(() => {
 
   for (const e of expenses) {
     if (!e.expense_date || !e.supplier_id) continue
-    if (!e.expense_date.startsWith(monthStr)) continue
+    if (!String(e.expense_date).startsWith(monthStr)) continue
 
     const current = map.get(e.supplier_id) || 0
     map.set(e.supplier_id, current + Number(e.amount || 0))
@@ -321,7 +322,7 @@ const stats = computed(() => {
 
   return {
     employees: totalEmployees,
-    employeesChange: '0', // you can calculate later vs previous month
+    employeesChange: '0',
     attendanceToday: {
       present: currentlyPresent,
       total: totalEmployees,
@@ -338,7 +339,7 @@ const stats = computed(() => {
   }
 })
 
-/* ---------- Today attendance detailed table ---------- */
+/* ---------- Today attendance detailed table (unchanged) ---------- */
 
 const todayDateFormatted = computed(() =>
   new Date().toLocaleDateString('en-GB', {
@@ -346,7 +347,7 @@ const todayDateFormatted = computed(() =>
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  })
+  }),
 )
 
 const todayAttendanceRows = computed(() => {
@@ -396,7 +397,7 @@ const activityRows = computed(() =>
     title: item.title,
     description: item.message,
     timeAgo: dashboardStore.timeAgo(item.date),
-  }))
+  })),
 )
 
 /* ---------- Helpers ---------- */
