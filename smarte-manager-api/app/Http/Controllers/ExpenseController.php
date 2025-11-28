@@ -23,16 +23,26 @@ class ExpenseController extends Controller
     }
 
     /**
+     * Show a single expense.
+     */
+    public function show($id): JsonResponse
+    {
+        $expense = Expense::with('supplier')->findOrFail($id);
+
+        return response()->json($expense);
+    }
+
+    /**
      * Create a new expense.
      */
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'category'    => 'required|string|max:255',
-            'amount'      => 'required|numeric',
-            'expense_date'=> 'required|date',
-            'supplier_id' => 'nullable|exists:suppliers,id',
-            'notes'       => 'nullable|string',
+            'category'     => 'required|string|max:255',
+            'amount'       => 'required|numeric',
+            'expense_date' => 'required|date',
+            'supplier_id'  => 'nullable|exists:suppliers,id',
+            'notes'        => 'nullable|string',
         ]);
 
         $expense = Expense::create($data);
@@ -41,6 +51,38 @@ class ExpenseController extends Controller
             $expense->load('supplier'),
             201
         );
+    }
+
+    /**
+     * Update an existing expense.
+     */
+    public function update(Request $request, $id): JsonResponse
+    {
+        $data = $request->validate([
+            'category'     => 'required|string|max:255',
+            'amount'       => 'required|numeric',
+            'expense_date' => 'required|date',
+            'supplier_id'  => 'nullable|exists:suppliers,id',
+            'notes'        => 'nullable|string',
+        ]);
+
+        $expense = Expense::findOrFail($id);
+        $expense->update($data);
+
+        return response()->json($expense->load('supplier'));
+    }
+
+    /**
+     * Delete an expense.
+     */
+    public function destroy($id): JsonResponse
+    {
+        $expense = Expense::findOrFail($id);
+        $expense->delete();
+
+        return response()->json([
+            'message' => 'Expense deleted',
+        ]);
     }
 
     /**

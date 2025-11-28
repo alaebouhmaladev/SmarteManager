@@ -11,7 +11,6 @@
         </p>
       </div>
 
-      <!-- 👇 New button to open ProductsView -->
       <PrimaryButton @click="goToProducts">
         View all products
       </PrimaryButton>
@@ -21,7 +20,9 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="sm-card p-5">
         <p class="text-xs text-neutral-500">Total products</p>
-        <p class="text-2xl font-semibold mt-1">{{ products.length }}</p>
+        <p class="text-2xl font-semibold mt-1">
+          {{ products.length }}
+        </p>
       </div>
 
       <div class="sm-card p-5">
@@ -33,12 +34,16 @@
 
       <div class="sm-card p-5">
         <p class="text-xs text-neutral-500">Low-stock items</p>
-        <p class="text-2xl font-semibold mt-1">{{ lowStockCount }}</p>
+        <p class="text-2xl font-semibold mt-1">
+          {{ lowStockProducts.length }}
+        </p>
       </div>
 
       <div class="sm-card p-5">
         <p class="text-xs text-neutral-500">Out of stock</p>
-        <p class="text-2xl font-semibold mt-1">{{ outOfStockCount }}</p>
+        <p class="text-2xl font-semibold mt-1">
+          {{ outOfStockCount }}
+        </p>
       </div>
     </div>
 
@@ -66,6 +71,14 @@
       </template>
 
       <template #body>
+        <!-- Loading -->
+        <tr v-if="inventoryStore.loadingOverview">
+          <td colspan="6" class="px-4 py-6 text-center text-xs text-neutral-500">
+            Loading inventory overview...
+          </td>
+        </tr>
+
+        <!-- Rows -->
         <tr
           v-for="p in lowStockProducts"
           :key="p.id"
@@ -78,27 +91,27 @@
           </td>
           <td class="px-4 py-2">
             <span class="text-xs text-neutral-500">
-              {{ p.sku }}
+              {{ p.sku || '—' }}
             </span>
           </td>
           <td class="px-4 py-2">
-            {{ p.stock_qty }}
+            {{ p.current_stock }}
           </td>
           <td class="px-4 py-2">
-            {{ p.low_stock_threshold }}
+            {{ p.min_stock }}
           </td>
           <td class="px-4 py-2">
             <span
               class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px]"
-              :class="p.stock_qty === 0
+              :class="p.current_stock === 0
                 ? 'bg-red-50 text-red-600'
                 : 'bg-amber-50 text-amber-700'"
             >
               <span
                 class="h-1.5 w-1.5 rounded-full"
-                :class="p.stock_qty === 0 ? 'bg-red-500' : 'bg-amber-500'"
+                :class="p.current_stock === 0 ? 'bg-red-500' : 'bg-amber-500'"
               ></span>
-              {{ p.stock_qty === 0 ? 'Out of stock' : 'Low stock' }}
+              {{ p.current_stock === 0 ? 'Out of stock' : 'Low stock' }}
             </span>
           </td>
           <td class="px-4 py-2 text-right">
@@ -111,7 +124,10 @@
           </td>
         </tr>
 
-        <tr v-if="lowStockProducts.length === 0">
+        <!-- Empty -->
+        <tr
+          v-if="!inventoryStore.loadingOverview && lowStockProducts.length === 0"
+        >
           <td colspan="6" class="px-4 py-6 text-center text-xs text-neutral-500">
             No low-stock products. Good job!
           </td>
@@ -126,53 +142,21 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import TableBase from '@/components/ui/TableBase.vue'
-import PrimaryButton from '@/components/ui/PrimaryButton.vue' // 👈 added
+import PrimaryButton from '@/components/ui/PrimaryButton.vue'
+import { useInventoryStore } from '@/stores/inventory'
 
 const router = useRouter()
+const inventoryStore = useInventoryStore()
 
-// MOCK PRODUCTS (same structure as ProductsView)
-const products = ref([
-  {
-    id: 1,
-    name: 'Flour 25kg bag',
-    sku: 'FL-25',
-    stock_qty: 6,
-    avg_cost: 180,
-    low_stock_threshold: 5,
-  },
-  {
-    id: 2,
-    name: 'Tomato sauce 5L',
-    sku: 'TS-5',
-    stock_qty: 2,
-    avg_cost: 70,
-    low_stock_threshold: 4,
-  },
-  {
-    id: 3,
-    name: 'Cheese 10kg block',
-    sku: 'CH-10',
-    stock_qty: 0,
-    avg_cost: 320,
-    low_stock_threshold: 2,
-  },
-])
-
-const stockValuation = computed(() =>
-  products.value.reduce((sum, p) => sum + p.stock_qty * p.avg_cost, 0)
-)
-
-const lowStockProducts = computed(() =>
-  products.value.filter((p) => p.stock_qty <= p.low_stock_threshold)
-)
-
-const lowStockCount = computed(() => lowStockProducts.value.length)
+const products = computed(() => inventoryStore.overviewProducts || [])
+const lowStockProducts = computed(() => inventoryStore.lowStockProducts || [])
+const stockValuation = computed(() => inventoryStore.totalValuation || 0)
 
 const outOfStockCount = computed(
-  () => products.value.filter((p) => p.stock_qty === 0).length
+  () => products.value.filter((p) => Number(p.current_stock) === 0).length,
 )
 
 function formatMoney(value) {
@@ -180,15 +164,18 @@ function formatMoney(value) {
     style: 'currency',
     currency: 'MAD',
     maximumFractionDigits: 0,
-  }).format(value)
+  }).format(value || 0)
 }
 
 function goToHistory(id) {
   router.push({ name: 'product-history', params: { id } })
 }
 
-// function to open Products View
 function goToProducts() {
   router.push({ name: 'products' })
 }
+
+onMounted(async () => {
+  await inventoryStore.fetchOverview()
+})
 </script>

@@ -1,10 +1,9 @@
 <template>
   <div class="space-y-4">
-
-    <!-- Header -->
+    <!-- Header + Export -->
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h2 class="text-lg font-semibold text-sm-dark dark:text-neutral-50">
+        <h2 class="text-lg font-semibold text-sm-dark">
           Payroll
         </h2>
         <p class="text-xs text-neutral-500">
@@ -12,48 +11,71 @@
         </p>
       </div>
 
-      <PrimaryButton @click="exportCSV">
-        Export CSV
-      </PrimaryButton>
+      <button
+        class="px-4 py-2 rounded-full bg-sm-dark text-sm-cream text-xs font-medium
+               disabled:opacity-60 disabled:cursor-not-allowed"
+        :disabled="payrollStore.exporting"
+        @click="handleExportCsv"
+      >
+        {{ payrollStore.exporting ? 'Exporting…' : 'Export CSV' }}
+      </button>
     </div>
 
-    <!-- Filters -->
-    <div class="sm-card p-4 space-y-3 md:space-y-0 md:flex md:items-end md:justify-between md:gap-4">
+    <!-- Filters (Month + Employee) -->
+    <div
+      class="sm-card p-4 space-y-3 md:space-y-0 md:flex md:items-end md:justify-between md:gap-4"
+    >
+      <div class="flex flex-col sm:flex-row gap-3 flex-1">
+        <!-- Month -->
+        <div class="flex-1">
+          <label class="block text-xs font-medium text-neutral-700 mb-1">
+            Month
+          </label>
+          <input
+            v-model="filters.month"
+            type="month"
+            class="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-sm-yellow focus:border-sm-yellow"
+          />
+        </div>
 
-      <!-- Month -->
-      <div class="flex-1">
-        <label class="block text-xs font-medium text-neutral-700 mb-1">
-          Month
-        </label>
-        <input
-          v-model="filters.month"
-          type="month"
-          class="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm
-                 focus:outline-none focus:ring-2 focus:ring-sm-yellow focus:border-sm-yellow"
-        />
-      </div>
-
-      <!-- Employee -->
-      <div class="flex-1">
-        <label class="block text-xs font-medium text-neutral-700 mb-1">
-          Employee
-        </label>
-        <select
-          v-model="filters.employeeId"
-          class="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm
-                 focus:outline-none focus:ring-2 focus:ring-sm-yellow focus:border-sm-yellow"
-        >
-          <option value="">All employees</option>
-          <option
-            v-for="emp in employees"
-            :key="emp.id"
-            :value="emp.id"
+        <!-- Employee -->
+        <div class="flex-1">
+          <label class="block text-xs font-medium text-neutral-700 mb-1">
+            Employee
+          </label>
+          <select
+            v-model="filters.employeeId"
+            class="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-sm-yellow focus:border-sm-yellow"
           >
-            {{ emp.name }}
-          </option>
-        </select>
+            <option value="">All employees</option>
+            <option
+              v-for="emp in employeesStore.employees"
+              :key="emp.id"
+              :value="emp.id"
+            >
+              {{ fullName(emp) }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button
+          class="px-3 py-1.5 rounded-full text-xs border transition
+                 bg-sm-dark text-sm-cream border-sm-dark"
+          @click="handleLoadMonthly"
+        >
+          Load payroll
+        </button>
       </div>
     </div>
+
+    <!-- Error message -->
+    <p v-if="payrollStore.error" class="text-xs text-red-600">
+      {{ payrollStore.error }}
+    </p>
 
     <!-- Table -->
     <TableBase>
@@ -61,206 +83,315 @@
         <th class="px-4 py-2 text-left text-[11px] font-medium text-neutral-500 uppercase">
           Employee
         </th>
-
         <th class="px-4 py-2 text-left text-[11px] font-medium text-neutral-500 uppercase">
-          Hours Worked
+          Hours worked
         </th>
-
         <th class="px-4 py-2 text-left text-[11px] font-medium text-neutral-500 uppercase">
-          Hourly Rate (MAD)
+          Hourly rate (MAD)
         </th>
-
         <th class="px-4 py-2 text-left text-[11px] font-medium text-neutral-500 uppercase">
-          Total Salary
+          Total salary
         </th>
-
         <th class="px-4 py-2 text-right text-[11px] font-medium text-neutral-500 uppercase">
           Payslip
         </th>
       </template>
 
       <template #body>
+        <!-- Loading -->
+        <tr v-if="payrollStore.loading">
+          <td colspan="5" class="px-4 py-6 text-center text-xs text-neutral-500">
+            Loading payroll...
+          </td>
+        </tr>
+
+        <!-- Data rows -->
         <tr
-          v-for="row in payrollComputed"
+          v-for="row in filteredPayroll"
           :key="row.employee_id"
-          class="hover:bg-sm-cream/50 dark:hover:bg-neutral-900/60 text-sm"
+          class="hover:bg-sm-cream/50 text-sm"
         >
-          <td class="px-4 py-2">
-            <p class="font-medium text-sm-dark dark:text-neutral-100">
-              {{ getEmployee(row.employee_id).name }}
+          <td class="px-4 py-2 align-middle">
+            <p class="font-medium text-sm-dark">
+              {{ row.employee_name }}
             </p>
             <p class="text-[11px] text-neutral-500">
               ID: #{{ row.employee_id }}
             </p>
           </td>
 
-          <td class="px-4 py-2">
-            {{ row.total_hours.toFixed(2) }}h
+          <td class="px-4 py-2 align-middle">
+            <span class="text-sm">
+              {{ formatHours(row.total_hours) }}
+            </span>
           </td>
 
-          <td class="px-4 py-2">
-            {{ getEmployee(row.employee_id).hourly_rate }} MAD
+          <td class="px-4 py-2 align-middle">
+            <span class="text-sm">
+              {{ formatRate(row.hourly_rate) }}
+            </span>
           </td>
 
-          <td class="px-4 py-2 font-semibold">
-            {{ formatMoney(row.total_salary) }}
+          <td class="px-4 py-2 align-middle">
+            <span class="text-sm font-semibold text-sm-dark">
+              {{ formatMoney(row.salary) }}
+            </span>
           </td>
 
-          <td class="px-4 py-2 text-right">
+          <td class="px-4 py-2 align-middle text-right">
             <button
-              class="text-xs text-sm-dark hover:underline"
-              @click="openPayslip(row)"
+              class="text-xs text-neutral-800 underline underline-offset-2"
+              @click="handleViewPayslip(row)"
             >
               View
             </button>
           </td>
         </tr>
 
-        <tr v-if="payrollComputed.length === 0">
+        <!-- Empty -->
+        <tr
+          v-if="!payrollStore.loading && filteredPayroll.length === 0"
+        >
           <td colspan="5" class="px-4 py-6 text-center text-xs text-neutral-500">
-            No payroll data for this period.
+            No payroll records for this month.
           </td>
         </tr>
       </template>
 
       <template #footer>
-        <span>
-          {{ payrollComputed.length }} payroll(s)
+        <span class="text-xs text-neutral-600">
+          {{ filteredPayroll.length }} payroll(s)
         </span>
       </template>
     </TableBase>
 
-    <!-- Payslip Modal -->
-    <ModalBase
-      v-model="showModal"
-      title="Employee Payslip"
-      :subtitle="'Payroll details for ' + (selectedEmployee?.name || '')"
+    <!-- Payslip MODAL -->
+    <div
+      v-if="showPayslipModal"
+      class="fixed inset-0 z-40 flex items-center justify-center bg-black/40"
     >
-      <div class="space-y-3 text-sm">
+      <div class="sm-card w-full max-w-2xl mx-4 p-4 relative bg-white">
+        <!-- Close button -->
+        <button
+          class="absolute top-3 right-3 text-neutral-400 hover:text-neutral-700 text-sm"
+          @click="closePayslip"
+        >
+          ✕
+        </button>
 
-        <div class="flex justify-between">
-          <span class="text-neutral-600">Employee</span>
-          <span class="font-medium">{{ selectedEmployee?.name }}</span>
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-3">
+          <div>
+            <h3 class="text-sm font-semibold text-sm-dark">
+              Payslip
+              <span v-if="employeeFullName">
+                – {{ employeeFullName }}
+              </span>
+            </h3>
+            <p class="text-[11px] text-neutral-500">
+              Month:
+              <span v-if="payrollStore.employeeDetails">
+                {{ payrollStore.employeeDetails.month }}
+              </span>
+            </p>
+          </div>
+
+          <div class="flex gap-4 text-xs" v-if="payrollStore.employeeDetails">
+            <div>
+              <p class="text-neutral-500 text-[11px]">Total hours</p>
+              <p class="font-medium text-sm-dark">
+                {{ formatHours(payrollStore.employeeDetails.total_hours) }}
+              </p>
+            </div>
+            <div>
+              <p class="text-neutral-500 text-[11px]">Total salary</p>
+              <p class="font-medium text-sm-dark">
+                {{ formatMoney(payrollStore.employeeDetails.salary) }}
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div class="flex justify-between">
-          <span class="text-neutral-600">Position</span>
-          <span class="font-medium">{{ selectedEmployee?.position }}</span>
+        <!-- Body -->
+        <div v-if="payrollStore.loadingEmployee" class="py-6 text-center text-xs text-neutral-500">
+          Loading payslip...
         </div>
 
-        <div class="flex justify-between">
-          <span class="text-neutral-600">Hourly Rate</span>
-          <span class="font-medium">{{ selectedEmployee?.hourly_rate }} MAD</span>
+        <div
+          v-else-if="payrollStore.employeeDetails"
+          class="border-t border-neutral-200 pt-3 mt-2"
+        >
+          <p class="text-[11px] font-medium text-neutral-600 mb-2">
+            Attendance breakdown
+          </p>
+          <div class="max-h-64 overflow-y-auto text-xs">
+            <table class="w-full">
+              <thead>
+                <tr class="text-[11px] text-neutral-500 uppercase">
+                  <th class="py-1 text-left">Date</th>
+                  <th class="py-1 text-left">Check-in</th>
+                  <th class="py-1 text-left">Check-out</th>
+                  <th class="py-1 text-left">Hours</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="att in payrollStore.employeeDetails.attendances"
+                  :key="att.id"
+                  class="border-t border-neutral-100"
+                >
+                  <td class="py-1">
+                    {{ formatDate(att.work_date) }}
+                  </td>
+                  <td class="py-1">
+                    {{ formatTime(att.check_in) }}
+                  </td>
+                  <td class="py-1">
+                    {{ formatTime(att.check_out) }}
+                  </td>
+                  <td class="py-1">
+                    {{ formatHours(att.total_hours) }}
+                  </td>
+                </tr>
+                <tr
+                  v-if="!payrollStore.employeeDetails.attendances ||
+                        payrollStore.employeeDetails.attendances.length === 0"
+                >
+                  <td colspan="4" class="py-2 text-neutral-500 text-[11px]">
+                    No attendance records found for this employee in this month.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <div class="flex justify-between">
-          <span class="text-neutral-600">Hours Worked</span>
-          <span class="font-medium">{{ selectedPayroll?.total_hours }} h</span>
-        </div>
-
-        <div class="flex justify-between border-t pt-3 mt-2">
-          <span class="font-semibold">Total Salary</span>
-          <span class="font-semibold text-sm-dark">
-            {{ formatMoney(selectedPayroll?.total_salary) }}
-          </span>
+        <div
+          v-else
+          class="py-6 text-center text-xs text-neutral-500"
+        >
+          No payslip data to display.
         </div>
       </div>
-
-      <template #footer>
-        <button
-          class="text-xs px-3 py-2 rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-100"
-          @click="showModal = false"
-        >
-          Close
-        </button>
-      </template>
-    </ModalBase>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
-import PrimaryButton from '@/components/ui/PrimaryButton.vue'
+import { computed, reactive, ref, onMounted } from 'vue'
 import TableBase from '@/components/ui/TableBase.vue'
-import ModalBase from '@/components/ui/ModalBase.vue'
+import { usePayrollStore } from '@/stores/payroll'
+import { useEmployeesStore } from '@/stores/employees'
 
-/* ---------------------------------------------------
-   MOCK EMPLOYEES (hr rate included)
------------------------------------------------------ */
-const employees = [
-  { id: 1, name: 'Ahmed Rami', position: 'Chef', hourly_rate: 25 },
-  { id: 2, name: 'Said Nassim', position: 'Cashier', hourly_rate: 15 },
-  { id: 3, name: 'Mouad Idrissi', position: 'Worker', hourly_rate: 13 },
-]
+const payrollStore = usePayrollStore()
+const employeesStore = useEmployeesStore()
 
-/* ---------------------------------------------------
-   MOCK ATTENDANCE HOURS (for payroll calculation)
------------------------------------------------------ */
-const attendanceHours = [
-  { employee_id: 1, total_hours: 167.2 },
-  { employee_id: 2, total_hours: 152.8 },
-  { employee_id: 3, total_hours: 134.5 },
-]
+const showPayslipModal = ref(false)
 
-/* ---------------------------------------------------
-   Filters
------------------------------------------------------ */
+function getDefaultMonth() {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  return `${now.getFullYear()}-${month}`
+}
+
 const filters = reactive({
-  month: '2025-11',
+  month: payrollStore.month || getDefaultMonth(),
   employeeId: '',
 })
 
-/* ---------------------------------------------------
-   Computed payroll array
------------------------------------------------------ */
-const payrollComputed = computed(() => {
-  return attendanceHours
-    .filter((row) =>
-      filters.employeeId
-        ? row.employee_id === Number(filters.employeeId)
-        : true
-    )
-    .map((row) => {
-      const emp = employees.find((e) => e.id === row.employee_id)
-      return {
-        ...row,
-        total_salary: row.total_hours * emp.hourly_rate,
-      }
-    })
+const fullName = (emp) =>
+  `${emp.first_name || ''} ${emp.last_name || ''}`.trim()
+
+onMounted(async () => {
+  if (!employeesStore.employees.length) {
+    await employeesStore.fetchEmployees()
+  }
+  await payrollStore.fetchMonthly(filters.month)
 })
 
-/* ---------------------------------------------------
-   Helper functions
------------------------------------------------------ */
-function getEmployee(id) {
-  return employees.find((e) => e.id === id)
+const filteredPayroll = computed(() =>
+  (payrollStore.list || []).filter((row) => {
+    if (filters.employeeId && row.employee_id !== Number(filters.employeeId)) {
+      return false
+    }
+    return true
+  }),
+)
+
+const employeeFullName = computed(() => {
+  const d = payrollStore.employeeDetails
+  if (!d?.employee) return ''
+  return `${d.employee.first_name} ${d.employee.last_name}`
+})
+
+function formatHours(hours) {
+  if (hours == null) return '—'
+
+  const value = Number(hours)
+  if (Number.isNaN(value)) return '—'
+
+  let h = Math.floor(value)
+  let m = Math.round((value - h) * 60)
+
+  // Handle rounding (for example 1.999 → 2h 0m)
+  if (m === 60) {
+    h += 1
+    m = 0
+  }
+
+  if (h === 0 && m === 0) return '0h'
+  if (h === 0) return `${m}m`
+  if (m === 0) return `${h}h`
+
+  return `${h}h ${m}m`
+}
+
+
+function formatRate(rate) {
+  if (rate == null) return '—'
+  return `${Number(rate).toLocaleString('fr-MA')} MAD`
 }
 
 function formatMoney(value) {
-  return new Intl.NumberFormat('fr-MA', {
-    style: 'currency',
-    currency: 'MAD',
-    maximumFractionDigits: 0,
-  }).format(value)
+  if (value == null) return '—'
+  return `${Number(value).toLocaleString('fr-MA')} MAD`
 }
 
-/* ---------------------------------------------------
-   CSV export (mock)
------------------------------------------------------ */
-function exportCSV() {
-  alert('🚀 CSV export will be implemented with backend!')
+function formatDate(dateStr) {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return dateStr
+  return d.toLocaleDateString('fr-MA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
 }
 
-/* ---------------------------------------------------
-   Payslip modal
------------------------------------------------------ */
-const showModal = ref(false)
-const selectedEmployee = ref(null)
-const selectedPayroll = ref(null)
+function formatTime(dateTimeStr) {
+  if (!dateTimeStr) return '—'
+  const d = new Date(dateTimeStr)
+  if (Number.isNaN(d.getTime())) return dateTimeStr
+  return d.toLocaleTimeString('fr-MA', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 
-function openPayslip(row) {
-  selectedEmployee.value = getEmployee(row.employee_id)
-  selectedPayroll.value = row
-  showModal.value = true
+async function handleLoadMonthly() {
+  await payrollStore.fetchMonthly(filters.month)
+}
+
+function handleExportCsv() {
+  payrollStore.exportMonthlyCsv(filters.month)
+}
+
+async function handleViewPayslip(row) {
+  showPayslipModal.value = true
+  await payrollStore.fetchEmployeeMonthly(row.employee_id, filters.month)
+}
+
+function closePayslip() {
+  showPayslipModal.value = false
 }
 </script>

@@ -1,19 +1,55 @@
 <template>
   <div class="space-y-4">
-    <!-- Header -->
+    <!-- Header + manual admin controls -->
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h2 class="text-lg font-semibold text-sm-dark dark:text-neutral-50">
+        <h2 class="text-lg font-semibold text-sm-dark">
           Attendance
         </h2>
         <p class="text-xs text-neutral-500">
           View and filter attendance records for all employees.
         </p>
       </div>
+
+      <!-- Manual check-in / check-out for selected employee -->
+      <div class="sm-card px-3 py-2 flex items-center gap-3">
+        <select
+          v-model="manual.employeeId"
+          class="rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs
+                 focus:outline-none focus:ring-2 focus:ring-sm-yellow focus:border-sm-yellow"
+        >
+          <option value="">Select employee…</option>
+          <option
+            v-for="emp in employeesStore.employees"
+            :key="emp.id"
+            :value="emp.id"
+          >
+            {{ fullName(emp) }}
+          </option>
+        </select>
+
+        <button
+          class="text-xs px-3 py-1.5 rounded-xl bg-sm-dark text-sm-cream disabled:opacity-60 disabled:cursor-not-allowed"
+          :disabled="!manual.employeeId"
+          @click="handleManualCheckIn"
+        >
+          Check in
+        </button>
+
+        <button
+          class="text-xs px-3 py-1.5 rounded-xl bg-white border border-neutral-300 text-sm-dark disabled:opacity-60 disabled:cursor-not-allowed"
+          :disabled="!manual.employeeId"
+          @click="handleManualCheckOut"
+        >
+          Check out
+        </button>
+      </div>
     </div>
 
     <!-- Filters -->
-    <div class="sm-card p-4 space-y-3 md:space-y-0 md:flex md:items-end md:justify-between md:gap-4">
+    <div
+      class="sm-card p-4 space-y-3 md:space-y-0 md:flex md:items-end md:justify-between md:gap-4"
+    >
       <div class="flex flex-col sm:flex-row gap-3 flex-1">
         <div class="flex-1">
           <label class="block text-xs font-medium text-neutral-700 mb-1">
@@ -50,11 +86,11 @@
           >
             <option value="">All employees</option>
             <option
-              v-for="emp in employees"
+              v-for="emp in employeesStore.employees"
               :key="emp.id"
               :value="emp.id"
             >
-              {{ emp.name }}
+              {{ fullName(emp) }}
             </option>
           </select>
         </div>
@@ -99,56 +135,67 @@
       </template>
 
       <template #body>
+        <!-- Loading state -->
+        <tr v-if="attendanceStore.loading">
+          <td colspan="6" class="px-4 py-6 text-center text-xs text-neutral-500">
+            Loading attendance...
+          </td>
+        </tr>
+
+        <!-- Data rows -->
         <tr
           v-for="row in filteredAttendance"
           :key="row.id"
-          class="hover:bg-sm-cream/50 dark:hover:bg-neutral-900/60 text-sm"
+          class="hover:bg-sm-cream/50 text-sm"
         >
           <td class="px-4 py-2 align-middle">
-            <p class="font-medium text-sm-dark dark:text-neutral-100">
+            <p class="font-medium text-sm-dark">
               {{ getEmployeeName(row.employee_id) }}
             </p>
           </td>
 
           <td class="px-4 py-2 align-middle">
-            <span class="text-sm text-neutral-700 dark:text-neutral-200">
-              {{ row.date }}
+            <span class="text-sm text-neutral-700">
+              {{ formatDate(row.work_date) }}
             </span>
           </td>
 
           <td class="px-4 py-2 align-middle">
             <span class="text-sm">
-              {{ row.check_in || '—' }}
+              {{ formatTime(row.check_in) }}
             </span>
           </td>
 
           <td class="px-4 py-2 align-middle">
             <span class="text-sm">
-              {{ row.check_out || '—' }}
+              {{ formatTime(row.check_out) }}
             </span>
           </td>
 
           <td class="px-4 py-2 align-middle">
             <span class="text-sm">
-              {{ row.total_hours != null ? row.total_hours.toFixed(2) : '—' }}
+              {{ row.total_hours != null ? Number(row.total_hours).toFixed(2) : '—' }}
             </span>
           </td>
 
           <td class="px-4 py-2 align-middle">
             <span
               class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px]"
-              :class="statusBadgeClass(row.status)"
+              :class="statusBadgeClass(computedStatus(row))"
             >
               <span
                 class="h-1.5 w-1.5 rounded-full"
-                :class="statusDotClass(row.status)"
+                :class="statusDotClass(computedStatus(row))"
               ></span>
-              {{ row.status }}
+              {{ computedStatus(row) }}
             </span>
           </td>
         </tr>
 
-        <tr v-if="filteredAttendance.length === 0">
+        <!-- Empty state -->
+        <tr
+          v-if="!attendanceStore.loading && filteredAttendance.length === 0"
+        >
           <td colspan="6" class="px-4 py-6 text-center text-xs text-neutral-500">
             No attendance records with current filters.
           </td>
@@ -163,99 +210,101 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, onMounted } from 'vue'
 import TableBase from '@/components/ui/TableBase.vue'
+import { useAttendanceStore } from '@/stores/attendance'
+import { useEmployeesStore } from '@/stores/employees'
 
-/**
- * MOCK employees
- */
-const employees = [
-  { id: 1, name: 'Ahmed Rami' },
-  { id: 2, name: 'Said Nassim' },
-  { id: 3, name: 'Mouad Idrissi' },
-]
+const attendanceStore = useAttendanceStore()
+const employeesStore = useEmployeesStore()
 
-/**
- * MOCK attendance data
- */
-const attendance = ref([
-  {
-    id: 1,
-    employee_id: 1,
-    date: '2025-11-20',
-    check_in: '09:02',
-    check_out: '17:15',
-    total_hours: 8.2,
-    status: 'Present',
-  },
-  {
-    id: 2,
-    employee_id: 2,
-    date: '2025-11-20',
-    check_in: '09:40',
-    check_out: '17:05',
-    total_hours: 7.3,
-    status: 'Late',
-  },
-  {
-    id: 3,
-    employee_id: 3,
-    date: '2025-11-20',
-    check_in: null,
-    check_out: null,
-    total_hours: null,
-    status: 'Absent',
-  },
-  {
-    id: 4,
-    employee_id: 1,
-    date: '2025-11-19',
-    check_in: '09:05',
-    check_out: '17:00',
-    total_hours: 7.9,
-    status: 'Present',
-  },
-  {
-    id: 5,
-    employee_id: 2,
-    date: '2025-11-19',
-    check_in: '09:10',
-    check_out: '16:50',
-    total_hours: 7.6,
-    status: 'Present',
-  },
-])
+// Load employees + attendance on mount
+onMounted(async () => {
+  if (!employeesStore.employees.length) {
+    await employeesStore.fetchEmployees()
+  }
+  await attendanceStore.fetchAll()
+})
 
-/**
- * Filters
- */
+// filters for table
 const filters = reactive({
   from: '',
   to: '',
   employeeId: '',
-  status: 'all',
+  status: 'all', // all | Active | Not Active
 })
 
+// manual admin controls
+const manual = reactive({
+  employeeId: '',
+})
+
+// All / Active / Not Active
 const statusFilters = [
   { value: 'all', label: 'All' },
-  { value: 'Present', label: 'Present' },
-  { value: 'Late', label: 'Late' },
-  { value: 'Absent', label: 'Absent' },
+  { value: 'Active', label: 'Active' },
+  { value: 'Not Active', label: 'Not active' },
 ]
 
-const filteredAttendance = computed(() => {
-  return attendance.value.filter((row) => {
-    // date filter
-    if (filters.from && row.date < filters.from) return false
-    if (filters.to && row.date > filters.to) return false
+// full name from employees store
+const fullName = (emp) =>
+  `${emp.first_name || ''} ${emp.last_name || ''}`.trim()
 
-    // employee filter
+function getEmployeeName(id) {
+  const emp = employeesStore.employees.find((e) => e.id === id)
+  return emp ? fullName(emp) : 'Unknown'
+}
+
+/**
+ * STATUS:
+ *  - Active     = has check_in AND NO check_out (currently working)
+ *  - Not Active = everything else
+ */
+function computedStatus(row) {
+  const hasIn = !!row.check_in
+  const hasOut = !!row.check_out
+
+  if (hasIn && !hasOut) {
+    return 'Active'
+  }
+  return 'Not Active'
+}
+
+// Format helpers
+function formatDate(dateStr) {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return dateStr
+  return d.toLocaleDateString('fr-MA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+}
+
+function formatTime(dateTimeStr) {
+  if (!dateTimeStr) return '—'
+  const d = new Date(dateTimeStr)
+  if (Number.isNaN(d.getTime())) return dateTimeStr
+  return d.toLocaleTimeString('fr-MA', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+const filteredAttendance = computed(() => {
+  return (attendanceStore.records || []).filter((row) => {
+    const date = row.work_date
+
+    if (filters.from && date < filters.from) return false
+    if (filters.to && date > filters.to) return false
+
     if (filters.employeeId && row.employee_id !== Number(filters.employeeId)) {
       return false
     }
 
-    // status filter
-    if (filters.status !== 'all' && row.status !== filters.status) {
+    const s = computedStatus(row)
+    if (filters.status !== 'all' && s !== filters.status) {
       return false
     }
 
@@ -263,18 +312,11 @@ const filteredAttendance = computed(() => {
   })
 })
 
-function getEmployeeName(id) {
-  const emp = employees.find((e) => e.id === id)
-  return emp ? emp.name : 'Unknown'
-}
-
 function statusBadgeClass(status) {
   switch (status) {
-    case 'Present':
+    case 'Active':
       return 'bg-emerald-50 text-emerald-700'
-    case 'Late':
-      return 'bg-amber-50 text-amber-700'
-    case 'Absent':
+    case 'Not Active':
       return 'bg-red-50 text-red-600'
     default:
       return 'bg-neutral-100 text-neutral-700'
@@ -283,14 +325,24 @@ function statusBadgeClass(status) {
 
 function statusDotClass(status) {
   switch (status) {
-    case 'Present':
+    case 'Active':
       return 'bg-emerald-500'
-    case 'Late':
-      return 'bg-amber-500'
-    case 'Absent':
+    case 'Not Active':
       return 'bg-red-500'
     default:
       return 'bg-neutral-500'
   }
+}
+
+/* ===== Manual check-in / check-out actions ===== */
+
+async function handleManualCheckIn() {
+  if (!manual.employeeId) return
+  await attendanceStore.checkInForEmployee(Number(manual.employeeId))
+}
+
+async function handleManualCheckOut() {
+  if (!manual.employeeId) return
+  await attendanceStore.checkOutForEmployee(Number(manual.employeeId))
 }
 </script>

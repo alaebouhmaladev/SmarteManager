@@ -82,10 +82,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('attendance/check-in', [AttendanceController::class, 'checkIn']);
         Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);
 
-        Route::get('attendances/employee/{employee}', [AttendanceController::class, 'byEmployee']);
-        Route::get('attendances/daily', [AttendanceController::class, 'daily']);
-        Route::get('attendances/monthly-summary', [AttendanceController::class, 'monthlySummary']);
-        Route::get('attendances/export-csv', [AttendanceController::class, 'exportMonthlyCsv']);
+        // Route::get('attendances/employee/{employee}', [AttendanceController::class, 'byEmployee']);
+        // Route::get('attendances/daily', [AttendanceController::class, 'daily']);
+        // Route::get('attendances/monthly-summary', [AttendanceController::class, 'monthlySummary']);
+        // Route::get('attendances/export-csv', [AttendanceController::class, 'exportMonthlyCsv']);
 
 
         /*
@@ -95,7 +95,6 @@ Route::middleware('auth:sanctum')->group(function () {
         */
         Route::get('payroll/monthly', [PayrollController::class, 'monthly']);
         Route::get('payroll/export-csv', [PayrollController::class, 'exportMonthlyCsv']);
-        // NEW: single employee payslip
         Route::get('payroll/employee/{employee}', [PayrollController::class, 'employeeMonthly']);
 
 
@@ -116,9 +115,26 @@ Route::middleware('auth:sanctum')->group(function () {
         | SUPPLIERS
         |--------------------------------------------------------------------------
         */
-        Route::apiResource('suppliers', SupplierController::class);
-        // Supplier overview
-        Route::get('suppliers/{supplier}/overview', [SupplierController::class, 'overview']);
+        // List all suppliers
+        Route::get('suppliers', [SupplierController::class, 'index']);
+
+        // Create supplier
+        Route::post('suppliers', [SupplierController::class, 'store']);
+
+        // Get single supplier (view page)
+        Route::get('suppliers/{supplier}', [SupplierController::class, 'show']);
+
+        // Update supplier
+        Route::put('suppliers/{supplier}', [SupplierController::class, 'update']);
+
+        // Delete supplier
+        Route::delete('suppliers/{supplier}', [SupplierController::class, 'destroy']);
+
+        // Supplier overview (dashboard: expenses + stock purchases)
+        Route::get(
+            'suppliers/{supplier}/overview',
+            [SupplierController::class, 'overview']
+        );
 
 
         /*
@@ -134,23 +150,27 @@ Route::middleware('auth:sanctum')->group(function () {
         | STOCK MOVEMENTS
         |--------------------------------------------------------------------------
         */
-        Route::apiResource('stock-movements', StockMovementController::class)
-            ->only(['index', 'store']);
-
-
+        Route::apiResource('stock-movements', StockMovementController::class)->only(['index', 'store']);
         /*
         |--------------------------------------------------------------------------
         | EXPENSES
         |--------------------------------------------------------------------------
         */
-        Route::apiResource('expenses', ExpenseController::class)
-            ->only(['index', 'store']);
 
-        // Expense features
+        // Base list + create
+        Route::get('expenses', [ExpenseController::class, 'index']);
+        Route::post('expenses', [ExpenseController::class, 'store']);
+
+        // Extra reporting endpoints (put BEFORE the {expense} wildcard)
         Route::get('expenses/monthly-summary', [ExpenseController::class, 'monthlySummary']);
         Route::get('expenses/by-supplier/{supplier}', [ExpenseController::class, 'bySupplier']);
         Route::get('expenses/export-csv', [ExpenseController::class, 'exportMonthlyCsv']);
 
+        // CRUD for a single expense
+        Route::get('expenses/{expense}', [ExpenseController::class, 'show']);
+        Route::put('expenses/{expense}', [ExpenseController::class, 'update']);
+        Route::delete('expenses/{expense}', [ExpenseController::class, 'destroy']);
+        
 
         /*
         |--------------------------------------------------------------------------

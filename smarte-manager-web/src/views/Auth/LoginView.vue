@@ -1,84 +1,88 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-sm-cream p-4">
-    
-    <div class="sm-card w-full max-w-md p-8">
-
-      <!-- Brand -->
-      <div class="text-center mb-6">
-        <h1 class="text-2xl font-bold text-sm-dark">SmartManager</h1>
-        <p class="text-sm text-neutral-600 dark:text-neutral-400">
-          Sign in to continue
-        </p>
-      </div>
-
-      <form @submit.prevent="handleLogin" class="space-y-4">
-
-        <InputField
-          v-model="email"
-          label="Email"
-          type="email"
-          placeholder="you@example.com"
-        />
-
-        <InputField
-          v-model="password"
-          label="Password"
-          type="password"
-          placeholder="•••••••••"
-        />
-
-        <PrimaryButton
-          fullWidth
-          variant="primary"
-          :loading="loading"
-          type="submit"
-        >
-          Login
-        </PrimaryButton>
-
-      </form>
-
-      <!-- Error -->
-      <p
-        v-if="error"
-        class="text-center text-red-500 text-sm mt-4"
-      >
-        {{ error }}
+  <div class="min-h-screen flex items-center justify-center bg-sm-cream">
+    <div class="w-full max-w-md sm-card p-6">
+      <h1 class="text-xl font-semibold text-sm-dark mb-1">
+        SmartManager Login
+      </h1>
+      <p class="text-xs text-neutral-500 mb-4">
+        Sign in with your admin or manager account to continue.
       </p>
 
+      <!-- Error text under title (optional) -->
+      <p
+        v-if="auth.error"
+        class="mb-3 text-xs text-red-500"
+      >
+        {{ auth.error }}
+      </p>
+
+      <form class="space-y-3" @submit.prevent="handleLogin">
+        <div>
+          <label class="block text-xs font-medium text-neutral-700 mb-1">
+            Email
+          </label>
+          <input
+            v-model="form.email"
+            type="email"
+            autocomplete="email"
+            required
+            class="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-sm-yellow focus:border-sm-yellow"
+            placeholder="admin@example.com"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-neutral-700 mb-1">
+            Password
+          </label>
+          <input
+            v-model="form.password"
+            type="password"
+            autocomplete="current-password"
+            required
+            class="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-sm-yellow focus:border-sm-yellow"
+            placeholder="••••••••"
+          />
+        </div>
+
+        <button
+          type="submit"
+          :disabled="auth.loading"
+          class="w-full mt-2 inline-flex items-center justify-center px-4 py-2 rounded-xl
+                 text-xs font-medium bg-sm-dark text-sm-cream hover:bg-black
+                 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <span v-if="!auth.loading">Login</span>
+          <span v-else>Logging in...</span>
+        </button>
+      </form>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { reactive } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import InputField from '@/components/ui/InputField.vue'
-import PrimaryButton from '@/components/ui/PrimaryButton.vue'
 
 const auth = useAuthStore()
-const router = useRouter()
-const route = useRoute()
 
-const email = ref('')
-const password = ref('')
-const loading = ref(false)
-const error = ref(null)
+const form = reactive({
+  email: '',
+  password: '',
+})
 
 const handleLogin = async () => {
-  loading.value = true
-  error.value = null
+  // prevent double submit
+  if (auth.loading) return
 
-  try {
-    await auth.login(email.value, password.value)
+  // clear previous error before new attempt
+  auth.error = null
 
-    const redirect = route.query.redirect || '/dashboard'
-    router.push(redirect)
-  } catch (e) {
-    error.value = 'Invalid credentials'
-  } finally {
-    loading.value = false
-  }
+  await auth.login({
+    email: form.email,
+    password: form.password,
+  })
 }
 </script>

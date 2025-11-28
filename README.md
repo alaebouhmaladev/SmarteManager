@@ -49,7 +49,7 @@ It centralizes:
 - Laravel 11
 - PHP 8.2+
 - Laravel Sanctum
-- MySQL / MariaDB
+- MySQL
 - Eloquent ORM
 - REST API
 

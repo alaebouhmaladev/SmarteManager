@@ -1,39 +1,33 @@
+<!-- src/components/ui/ModalBase.vue -->
 <template>
   <transition name="fade">
     <div
-      v-if="modelValue"
-      class="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      v-if="open"
+      class="fixed inset-0 z-40 flex items-center justify-center"
     >
+      <!-- backdrop -->
       <div
-        class="sm-card w-full max-w-md max-h-[90vh] overflow-y-auto p-5 relative"
+        class="absolute inset-0 bg-black/40"
+        @click="$emit('close')"
+      ></div>
+
+      <!-- panel -->
+      <div
+        class="relative z-50 w-full max-w-md mx-4 sm:max-w-lg bg-white rounded-2xl shadow-xl border border-neutral-100"
       >
-        <!-- Header -->
-        <div class="flex items-start justify-between gap-3 mb-3">
-          <div>
-            <h2 v-if="title" class="text-sm font-semibold text-sm-dark dark:text-neutral-50">
-              {{ title }}
-            </h2>
-            <p v-if="subtitle" class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              {{ subtitle }}
-            </p>
-          </div>
-          <button
-            class="rounded-full p-1 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            @click="close"
-          >
-            ✕
-          </button>
+        <div class="px-5 pt-4 pb-3 border-b border-neutral-100">
+          <h3 class="text-sm font-semibold text-sm-dark">
+            <slot name="title" />
+          </h3>
         </div>
 
-        <!-- Body -->
-        <div class="text-sm">
-          <slot />
+        <div class="px-5 py-4 space-y-3">
+          <slot name="body" />
         </div>
 
-        <!-- Footer -->
         <div
           v-if="$slots.footer"
-          class="mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-end gap-2"
+          class="px-5 py-3 border-t border-neutral-100 bg-neutral-50/60 rounded-b-2xl"
         >
           <slot name="footer" />
         </div>
@@ -43,20 +37,14 @@
 </template>
 
 <script setup>
-const props = defineProps({
-  modelValue: {
+defineProps({
+  open: {
     type: Boolean,
     default: false,
   },
-  title: String,
-  subtitle: String,
 })
 
-const emit = defineEmits(['update:modelValue'])
-
-function close() {
-  emit('update:modelValue', false)
-}
+defineEmits(['close'])
 </script>
 
 <style scoped>

@@ -4,23 +4,21 @@
     <div class="sm-card p-6 flex flex-col md:flex-row items-center justify-between gap-6">
       <div class="space-y-2">
         <h2 class="text-2xl font-bold text-sm-dark dark:text-neutral-50">
-          Welcome back, Nabil 👋
+          Welcome back, {{ userName }} 👋
         </h2>
         <p class="text-sm text-neutral-600 dark:text-neutral-400">
           Here’s a quick overview of your SmartManager system today.
         </p>
       </div>
 
-      <PrimaryButton
-        variant="primary"
-        @click="onQuickAction"
-      >
+      <PrimaryButton variant="primary" @click="onQuickAction">
         Add New Employee
       </PrimaryButton>
     </div>
 
     <!-- Stats cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Total employees -->
       <div class="sm-card p-5 flex flex-col gap-2">
         <div class="flex items-center justify-between">
           <p class="text-xs text-neutral-500">Total employees</p>
@@ -28,12 +26,15 @@
             HR
           </span>
         </div>
-        <p class="text-2xl font-semibold">{{ stats.employees }}</p>
+        <p class="text-2xl font-semibold">
+          {{ stats.employees }}
+        </p>
         <p class="text-xs text-emerald-600">
           ▲ {{ stats.employeesChange }} since last month
         </p>
       </div>
 
+      <!-- Attendance today (numbers) -->
       <div class="sm-card p-5 flex flex-col gap-2">
         <div class="flex items-center justify-between">
           <p class="text-xs text-neutral-500">Attendance today</p>
@@ -45,10 +46,12 @@
           {{ stats.attendanceToday.present }}/{{ stats.attendanceToday.total }}
         </p>
         <p class="text-xs text-neutral-600">
-          {{ stats.attendanceToday.late }} late · {{ stats.attendanceToday.absent }} absent
+          {{ stats.attendanceToday.late }} late ·
+          {{ stats.attendanceToday.absent }} absent
         </p>
       </div>
 
+      <!-- Stock valuation -->
       <div class="sm-card p-5 flex flex-col gap-2">
         <div class="flex items-center justify-between">
           <p class="text-xs text-neutral-500">Stock valuation</p>
@@ -59,12 +62,16 @@
         <p class="text-2xl font-semibold">
           {{ formatMoney(stats.stockValuation) }}
         </p>
-        <p class="text-xs" :class="stats.stockChange >= 0 ? 'text-emerald-600' : 'text-red-500'">
+        <p
+          class="text-xs"
+          :class="stats.stockChange >= 0 ? 'text-emerald-600' : 'text-red-500'"
+        >
           {{ stats.stockChange >= 0 ? '▲' : '▼' }}
           {{ Math.abs(stats.stockChange) }}% vs last month
         </p>
       </div>
 
+      <!-- Monthly expenses -->
       <div class="sm-card p-5 flex flex-col gap-2">
         <div class="flex items-center justify-between">
           <p class="text-xs text-neutral-500">Monthly expenses</p>
@@ -84,79 +91,121 @@
 
     <!-- Charts area -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <!-- Attendance chart -->
+      <!-- Today attendance detailed -->
       <div class="sm-card p-5 lg:col-span-2">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-semibold text-sm-dark dark:text-neutral-50">
-            Attendance this week
+            Attendance today
           </h3>
           <p class="text-xs text-neutral-500">
-            {{ weekRange }}
+            {{ todayDateFormatted }}
           </p>
         </div>
 
-        <div class="flex items-end gap-3 h-40">
-          <div
-            v-for="day in weeklyAttendance"
-            :key="day.label"
-            class="flex-1 flex flex-col items-center gap-1"
-          >
-            <div
-              class="w-full rounded-t-xl bg-sm-yellow/80 flex items-end justify-center"
-              :style="{ height: day.percent + '%' }"
-            >
-              <span class="text-[10px] font-medium text-sm-dark mb-1">
-                {{ day.present }}
-              </span>
-            </div>
-            <span class="text-[11px] text-neutral-500">
-              {{ day.label }}
-            </span>
-          </div>
+        <div v-if="dashboardStore.loading" class="text-sm text-neutral-500">
+          Loading attendance…
+        </div>
+
+        <div v-else-if="todayAttendanceRows.length === 0" class="text-sm text-neutral-500">
+          No attendance records for today yet.
+        </div>
+
+        <div v-else class="overflow-x-auto">
+          <table class="w-full text-xs md:text-sm">
+            <thead>
+              <tr class="text-left border-b border-neutral-200 dark:border-neutral-800">
+                <th class="py-2 pr-4">Employee</th>
+                <th class="py-2 pr-4">Check-in</th>
+                <th class="py-2 pr-4">Check-out</th>
+                <th class="py-2 pr-4">Hours</th>
+                <th class="py-2 pr-4">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="row in todayAttendanceRows"
+                :key="row.id"
+                class="border-b border-neutral-100 dark:border-neutral-800"
+              >
+                <td class="py-2 pr-4">
+                  {{ row.employeeName }}
+                </td>
+                <td class="py-2 pr-4">
+                  {{ row.checkIn }}
+                </td>
+                <td class="py-2 pr-4">
+                  {{ row.checkOut || '—' }}
+                </td>
+                <td class="py-2 pr-4">
+                  {{ row.totalHours }}
+                </td>
+                <td class="py-2 pr-4">
+                  <span
+                    class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium"
+                    :class="row.status === 'Present'
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : row.status === 'Completed'
+                      ? 'bg-neutral-100 text-neutral-700'
+                      : 'bg-red-50 text-red-600'"
+                  >
+                    ● {{ row.status }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         <p class="mt-3 text-[11px] text-neutral-500">
-          Based on scheduled employees vs present employees per day.
+          Based on today’s check-ins and check-outs.
         </p>
       </div>
 
-      <!-- Expenses distribution -->
+      <!-- Expenses by supplier -->
       <div class="sm-card p-5">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-semibold text-sm-dark dark:text-neutral-50">
-            Expenses by category
+            Expenses by supplier
           </h3>
           <span class="text-[11px] text-neutral-500">
             This month
           </span>
         </div>
 
-        <div class="space-y-3">
+        <div v-if="dashboardStore.loading" class="text-sm text-neutral-500">
+          Loading expenses…
+        </div>
+
+        <div v-else-if="expensesBySupplier.length === 0" class="text-sm text-neutral-500">
+          No expenses recorded for this month yet.
+        </div>
+
+        <div v-else class="space-y-3">
           <div
-            v-for="cat in expensesByCategory"
-            :key="cat.name"
+            v-for="sup in expensesBySupplier"
+            :key="sup.id"
             class="space-y-1"
           >
             <div class="flex items-center justify-between text-xs">
               <span class="text-neutral-600 dark:text-neutral-300">
-                {{ cat.name }}
+                {{ sup.name }}
               </span>
               <span class="font-medium">
-                {{ formatMoney(cat.amount) }}
+                {{ formatMoney(sup.amount) }}
               </span>
             </div>
             <div class="w-full h-2 rounded-full bg-sm-cream overflow-hidden">
               <div
                 class="h-2 rounded-full bg-sm-dark"
-                :style="{ width: cat.percent + '%' }"
+                :style="{ width: sup.percent + '%' }"
               ></div>
             </div>
           </div>
-        </div>
 
-        <p class="mt-4 text-[11px] text-neutral-500">
-          Total: {{ formatMoney(stats.expensesMonth.total) }} this month.
-        </p>
+          <p class="mt-4 text-[11px] text-neutral-500">
+            Total: {{ formatMoney(stats.expensesMonth.total) }} this month.
+          </p>
+        </div>
       </div>
     </div>
 
@@ -170,7 +219,7 @@
 
       <ul class="divide-y divide-neutral-100 dark:divide-neutral-800 text-sm">
         <li
-          v-for="item in recentActivity"
+          v-for="item in activityRows"
           :key="item.id"
           class="py-2 flex items-center justify-between"
         >
@@ -183,7 +232,7 @@
             </p>
           </div>
           <span class="text-[11px] text-neutral-400">
-            {{ item.time }}
+            {{ item.timeAgo }}
           </span>
         </li>
       </ul>
@@ -192,72 +241,165 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import PrimaryButton from '@/components/ui/PrimaryButton.vue'
+import { useDashboardStore } from '@/stores/dashboard'
 
-// MOCK DATA for now – later you can replace by API response
-const stats = ref({
-  employees: 24,
-  employeesChange: '+3',
-  attendanceToday: {
-    present: 18,
-    total: 24,
-    late: 2,
-    absent: 4,
-  },
-  stockValuation: 15200,
-  stockChange: 4.3,
-  expensesMonth: {
-    total: 8540,
-    invoices: 17,
-    topSupplier: 'Main Food Supplier',
-  },
+const router = useRouter()
+const dashboardStore = useDashboardStore()
+
+/* ---------- Top stats ---------- */
+
+const userName = computed(() => {
+  const full = dashboardStore.me?.name || 'Nabil'
+  return full.split(' ')[0]
 })
 
-const weeklyAttendance = ref([
-  { label: 'Mon', present: 18, percent: 70 },
-  { label: 'Tue', present: 20, percent: 80 },
-  { label: 'Wed', present: 19, percent: 76 },
-  { label: 'Thu', present: 21, percent: 84 },
-  { label: 'Fri', present: 17, percent: 68 },
-  { label: 'Sat', present: 14, percent: 56 },
-])
+const expensesBySupplier = computed(() => {
+  const expenses = dashboardStore.expenses || []
+  const suppliers = dashboardStore.suppliers || []
 
-const expensesByCategory = ref([
-  { name: 'Food & supplies', amount: 4200, percent: 50 },
-  { name: 'Salaries', amount: 2600, percent: 30 },
-  { name: 'Utilities', amount: 900, percent: 11 },
-  { name: 'Misc', amount: 840, percent: 9 },
-])
+  // Use current month from summary or today
+  const monthStr =
+    dashboardStore.expensesSummary?.month ||
+    new Date().toISOString().slice(0, 7) // YYYY-MM
 
-const recentActivity = ref([
-  {
-    id: 1,
-    title: 'New employee added',
-    description: 'You added “Ahmed R.” to HR records.',
-    time: '5 min ago',
-  },
-  {
-    id: 2,
-    title: 'Stock movement recorded',
-    description: '15x “Pizza boxes 33cm” added to inventory.',
-    time: '24 min ago',
-  },
-  {
-    id: 3,
-    title: 'Expense registered',
-    description: 'Monthly electricity bill recorded.',
-    time: '2 hours ago',
-  },
-  {
-    id: 4,
-    title: 'Attendance closed',
-    description: 'Yesterday’s attendance report generated.',
-    time: '1 day ago',
-  },
-])
+  const map = new Map()
 
-const weekRange = computed(() => 'Mon – Sat')
+  for (const e of expenses) {
+    if (!e.expense_date || !e.supplier_id) continue
+    if (!e.expense_date.startsWith(monthStr)) continue
+
+    const current = map.get(e.supplier_id) || 0
+    map.set(e.supplier_id, current + Number(e.amount || 0))
+  }
+
+  const total = Array.from(map.values()).reduce((a, b) => a + b, 0)
+
+  return Array.from(map.entries())
+    .map(([supplierId, amount]) => {
+      const sup = suppliers.find((s) => s.id === supplierId)
+      return {
+        id: supplierId,
+        name: sup?.name || `Supplier #${supplierId}`,
+        amount,
+        percent: total ? Math.round((amount / total) * 100) : 0,
+      }
+    })
+    .sort((a, b) => b.amount - a.amount)
+})
+
+const stats = computed(() => {
+  const data = dashboardStore.overview
+
+  if (!data) {
+    return {
+      employees: 0,
+      employeesChange: '0',
+      attendanceToday: {
+        present: 0,
+        total: 0,
+        late: 0,
+        absent: 0,
+      },
+      stockValuation: 0,
+      stockChange: 0,
+      expensesMonth: {
+        total: 0,
+        invoices: 0,
+        topSupplier: '—',
+      },
+    }
+  }
+
+  const totalEmployees = data.employees?.total_active ?? 0
+  const todayCheckins = data.attendance?.today_checkins ?? 0
+  const currentlyPresent = data.attendance?.currently_present ?? 0
+
+  const topSupName = expensesBySupplier.value[0]?.name || '—'
+
+  return {
+    employees: totalEmployees,
+    employeesChange: '0', // you can calculate later vs previous month
+    attendanceToday: {
+      present: currentlyPresent,
+      total: totalEmployees,
+      late: 0,
+      absent: Math.max(totalEmployees - todayCheckins, 0),
+    },
+    stockValuation: data.inventory?.total_value ?? 0,
+    stockChange: 0,
+    expensesMonth: {
+      total: data.expenses?.total_this_month ?? 0,
+      invoices: dashboardStore.invoicesCount ?? 0,
+      topSupplier: topSupName,
+    },
+  }
+})
+
+/* ---------- Today attendance detailed table ---------- */
+
+const todayDateFormatted = computed(() =>
+  new Date().toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+)
+
+const todayAttendanceRows = computed(() => {
+  const list = dashboardStore.todayAttendance || []
+  return list.map((a) => {
+    const employeeName = a.employee
+      ? `${a.employee.first_name} ${a.employee.last_name}`
+      : `Employee #${a.employee_id}`
+
+    const checkIn = a.check_in
+      ? new Date(a.check_in).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : ''
+
+    const checkOut = a.check_out
+      ? new Date(a.check_out).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : ''
+
+    const totalHours =
+      a.total_hours != null ? a.total_hours.toFixed(2) + 'h' : '0.00h'
+
+    let status = 'Absent'
+    if (a.check_in && !a.check_out) status = 'Present'
+    if (a.check_in && a.check_out) status = 'Completed'
+
+    return {
+      id: a.id,
+      employeeName,
+      checkIn,
+      checkOut,
+      totalHours,
+      status,
+    }
+  })
+})
+
+/* ---------- Recent activity ---------- */
+
+const activityRows = computed(() =>
+  (dashboardStore.activityFeed || []).map((item, idx) => ({
+    id: idx,
+    title: item.title,
+    description: item.message,
+    timeAgo: dashboardStore.timeAgo(item.date),
+  }))
+)
+
+/* ---------- Helpers ---------- */
 
 function formatMoney(value) {
   if (value == null) return '-'
@@ -269,7 +411,11 @@ function formatMoney(value) {
 }
 
 function onQuickAction() {
-  // For now just console.log – later we’ll open "Create Employee" modal
-  console.log('Quick action: open Add Employee modal')
+  router.push({ name: 'employees' })
 }
+
+/* ---------- Init ---------- */
+onMounted(() => {
+  dashboardStore.loadDashboard()
+})
 </script>
