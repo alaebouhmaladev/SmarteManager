@@ -13,11 +13,12 @@ use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
-    /**
-     * GET /api/dashboard/overview
-     *
-     * Optional: ?month=YYYY-MM (default = current month)
-     */
+
+    /*
+    |--------------------------------------------------------------------------
+    |   Return dahsboard overview data
+    |--------------------------------------------------------------------------
+    */
     public function overview(Request $request): JsonResponse
     {
         $request->validate([
@@ -30,7 +31,7 @@ class DashboardController extends Controller
         // ---------------- EMPLOYEES ----------------
         $totalEmployees = Employee::where('status', 'active')->count();
 
-        // ---------------- ATTENDANCE (today) ----------------
+        // ---------------- ATTENDANCE  ----------------
         $today = Carbon::today()->toDateString();
 
         $todayCheckins = Attendance::whereDate('work_date', $today)->count();
@@ -40,7 +41,6 @@ class DashboardController extends Controller
             ->count();
 
         // ---------------- INVENTORY ----------------
-        // Total inventory value = SUM(current_stock * average_cost)
         $inventoryValue = Product::select(
                 DB::raw('SUM(current_stock * average_cost) as total_value')
             )
@@ -49,14 +49,12 @@ class DashboardController extends Controller
         $lowStockCount = Product::whereColumn('current_stock', '<=', 'min_stock')
             ->count();
 
-        // ---------------- EXPENSES (month) ----------------
+        // ---------------- EXPENSES ----------------
         $monthlyExpenses = Expense::whereYear('expense_date', $year)
             ->whereMonth('expense_date', $month)
             ->sum('amount');
 
-        // ---------------- PAYROLL (month) ----------------
-        // Reuse the same logic as PayrollController: sum(hours * hourly_rate)
-
+        // ---------------- PAYROLL ----------------
         $attendances = Attendance::with('employee')
             ->whereYear('work_date', $year)
             ->whereMonth('work_date', $month)

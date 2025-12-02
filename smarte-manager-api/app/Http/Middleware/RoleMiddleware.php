@@ -8,11 +8,12 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RoleMiddleware
 {
-    /**
-     * Handle an incoming request.
-     *
-     * Usage: ->middleware('role:admin') or ->middleware('role:admin,manager')
-     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | handle function Handle an incoming request for all routes 
+    |--------------------------------------------------------------------------
+    */
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
         $user = $request->user();
@@ -21,7 +22,7 @@ class RoleMiddleware
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        // If user's role is not in the allowed roles → 403
+        // If user role is not in the allowed roles return 403
         if (! in_array($user->role, $roles, true)) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }

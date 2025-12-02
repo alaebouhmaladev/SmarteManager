@@ -9,10 +9,12 @@ use Carbon\Carbon;
 
 class PayrollController extends Controller
 {
-    /**
-     * Monthly payroll calculation
-     * GET /api/payroll/monthly?month=2025-11
-     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | monthly function return Monthly payroll calculation
+    |--------------------------------------------------------------------------
+    */ 
     public function monthly(Request $request)
     {
         $request->validate([
@@ -49,11 +51,11 @@ class PayrollController extends Controller
             'employees'     => $summary,
         ]);
     }
-
-    /**
-     * Detailed payslip for one employee
-     * GET /api/payroll/employee/{employee}?month=2025-11
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | employeeMonthly function return Detailed payslip for one employee
+    |--------------------------------------------------------------------------
+    */ 
     public function employeeMonthly(Request $request, $employeeId)
     {
         $request->validate([
@@ -88,11 +90,11 @@ class PayrollController extends Controller
             'attendances' => $attendances,
         ]);
     }
-
-    /**
-     * Export payroll as CSV
-     * GET /api/payroll/export-csv?month=2025-11
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | exportMonthlyCsv function return payroll as CSV not work
+    |--------------------------------------------------------------------------
+    */ 
     public function exportMonthlyCsv(Request $request)
     {
         $request->validate([

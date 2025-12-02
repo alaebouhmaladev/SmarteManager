@@ -288,7 +288,6 @@
             required
           />
 
-          <!-- Unit price (only for IN) -->
           <InputField
             v-if="movementForm.type === 'in'"
             v-model.number="movementForm.unit_price"
@@ -299,8 +298,7 @@
             required
           />
 
-          <!-- Supplier (optional) -->
-          <div class="space-y-1.5">
+          <div v-if="movementForm.type === 'in'" class="space-y-1.5">
             <label class="block text-xs font-medium text-neutral-700">
               Supplier (optional)
             </label>
@@ -475,8 +473,8 @@ const movementForm = reactive({
 })
 
 const movementTypes = [
-  { value: 'in', label: 'Stock in' },
-  { value: 'out', label: 'Stock out' },
+  { value: 'in', label: 'In To Stock' },
+  { value: 'out', label: 'Out Of Stock' },
 ]
 
 const wouldBeNegative = computed(() => {

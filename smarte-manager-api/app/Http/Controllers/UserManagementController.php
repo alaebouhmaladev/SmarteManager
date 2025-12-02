@@ -3,27 +3,28 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Employee;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class UserManagementController extends Controller
 {
-    /**
-     * List all users (admin + manager).
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | index function return users with desc order
+    |--------------------------------------------------------------------------
+    */
     public function index()
     {
         return response()->json(
             User::orderBy('id', 'DESC')->get()
         );
     }
-
-    /**
-     * Create a new user.
-     *
-     * - Admin can create: admin, manager, staff
-     * - Manager can create: staff ONLY
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | store function create new user
+    |--------------------------------------------------------------------------
+    */
     public function store(Request $request)
     {
         $authUser = $request->user();
@@ -32,33 +33,59 @@ class UserManagementController extends Controller
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users,email',
             'password' => 'required|string|min:6',
-            'role'     => ['required', Rule::in(['admin', 'manager', 'staff'])],
+            'role'     => [
+                'required',
+                Rule::in(['admin', 'manager', 'hr', 'stock_manager', 'staff']),
+            ],
         ]);
 
-        // If a MANAGER is creating a user → force role = 'staff'
+        // force role 'staff' if manager create this user 
         if ($authUser->role === 'manager' && $data['role'] !== 'staff') {
             return response()->json([
-                'message' => 'Managers can only create staff users.'
+                'message' => 'Managers can only create staff users.',
             ], 403);
         }
 
-        // User model has "password" cast to hashed, so no manual bcrypt needed
         $user = User::create($data);
+
+        if (in_array($data['role'], ['manager', 'hr', 'stock_manager', 'staff'], true)) {
+
+            $parts = explode(' ', $user->name, 2);
+            $firstName = $parts[0] ?? $user->name;
+            $lastName  = $parts[1] ?? '';
+
+            $employee = Employee::create([
+                'first_name'  => $firstName,
+                'last_name'   => $lastName,
+                'phone'       => null,
+                'role'        => ucfirst(str_replace('_', ' ', $data['role'])), 
+                'hourly_rate' => 0,
+                'hire_date'   => now()->toDateString(),
+                'status'      => 'active',
+            ]);
+
+            $user->employee_id = $employee->id;
+            $user->save();
+
+        }
 
         return response()->json($user, 201);
     }
 
-    /**
-     * Show a single user (admin + manager).
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | show function return user data
+    |--------------------------------------------------------------------------
+    */
     public function show(User $user)
     {
         return response()->json($user);
     }
-
-    /**
-     * Update a user (admin only – route is protected).
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | update function updating user data just admin can make updates 
+    |--------------------------------------------------------------------------
+    */
     public function update(Request $request, User $user)
     {
         $data = $request->validate([
@@ -69,23 +96,49 @@ class UserManagementController extends Controller
                 Rule::unique('users', 'email')->ignore($user->id),
             ],
             'password' => 'sometimes|string|min:6',
-            'role'     => ['sometimes', Rule::in(['admin', 'manager', 'staff'])],
+            'role'     => [
+                'sometimes',
+                Rule::in(['admin', 'manager', 'hr', 'stock_manager', 'staff']),
+            ],
         ]);
 
         $user->update($data);
 
+        if (
+            isset($data['role']) &&
+            in_array($data['role'], ['manager', 'hr', 'stock_manager', 'staff'], true) &&
+            !$user->employee_id
+        ) {
+            $parts = explode(' ', $user->name, 2);
+            $firstName = $parts[0] ?? $user->name;
+            $lastName  = $parts[1] ?? '';
+
+            $employee = Employee::create([
+                'first_name'  => $firstName,
+                'last_name'   => $lastName,
+                'phone'       => null,
+                'role'        => ucfirst(str_replace('_', ' ', $data['role'])),
+                'hourly_rate' => 0,
+                'hire_date'   => now()->toDateString(),
+                'status'      => 'active',
+            ]);
+
+            $user->employee_id = $employee->id;
+            $user->save();
+        }
+
         return response()->json($user);
     }
-
-    /**
-     * Delete a user (admin only).
-     * Prevent deleting yourself.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | destroy function delete user using id
+    |--------------------------------------------------------------------------
+    */
     public function destroy(Request $request, User $user)
     {
         if ($request->user()->id === $user->id) {
             return response()->json([
-                'message' => 'You cannot delete your own account.'
+                'message' => 'You cannot delete your own account.',
             ], 400);
         }
 

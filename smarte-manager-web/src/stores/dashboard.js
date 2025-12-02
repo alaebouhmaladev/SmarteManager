@@ -2,6 +2,7 @@
 import { defineStore } from 'pinia'
 import http from '@/api/http'
 import { useUiStore } from '@/stores/ui'
+import { useAuthStore } from '@/stores/auth'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 dayjs.extend(relativeTime)
@@ -16,7 +17,7 @@ export const useDashboardStore = defineStore('dashboard', {
     // OLD weekly chart (kept in case you need it later)
     weekAttendance: [],
 
-    // NEW: detailed list of today's attendance
+    // detailed list of today's attendance
     todayAttendance: [],
 
     employees: [],
@@ -47,6 +48,9 @@ export const useDashboardStore = defineStore('dashboard', {
   actions: {
     async loadDashboard() {
       const ui = useUiStore()
+      const auth = useAuthStore()
+      const role = auth.user?.role || null
+
       this.loading = true
       this.error = null
 
@@ -58,82 +62,127 @@ export const useDashboardStore = defineStore('dashboard', {
         this.me = meRes.data
 
         // =============================================================
-        // 2) OVERVIEW (employees, inventory, attendance, payroll)
+        // 2) OVERVIEW (common for all roles)
         // =============================================================
         const overviewRes = await http.get('/dashboard/overview')
         this.overview = overviewRes.data
 
-        // =============================================================
-        // 3) TODAY ATTENDANCE (detailed list, from /attendances)
-        // =============================================================
-        const allAttRes = await http.get('/attendances')
-        const allAttendance = allAttRes.data || []
-        const todayStr = dayjs().format('YYYY-MM-DD')
-
-        this.todayAttendance = allAttendance.filter(
-          (a) => a.work_date === todayStr
-        )
-
-        // (Optional) keep weekAttendance empty or compute later if you want
+        // -------------------------------------------------------------
+        // ROLE GROUPS
+        // -------------------------------------------------------------
+        const canHR = ['admin', 'manager', 'hr'].includes(role)
+        const canInventory = ['admin', 'manager', 'stock_manager'].includes(role)
 
         // =============================================================
-        // 4) EMPLOYEES (for recent activity)
+        // 3) TODAY ATTENDANCE + EMPLOYEES (HR ROLES ONLY)
         // =============================================================
-        const empRes = await http.get('/employees')
-        this.employees = empRes.data
-        this.latestEmployees = this.employees.slice(0, 3)
+        if (canHR) {
+          const [allAttRes, empRes] = await Promise.all([
+            http.get('/attendances'),
+            http.get('/employees'),
+          ])
 
-        // =============================================================
-        // 5) EXPENSES + SUMMARY
-        // =============================================================
-        const expRes = await http.get('/expenses')
-        this.expenses = expRes.data
-        this.invoicesCount = expRes.data.length
+          const allAttendance = allAttRes.data || []
+          const todayStr = dayjs().format('YYYY-MM-DD')
 
-        const expSum = await http.get('/expenses/monthly-summary')
-        this.expensesSummary = expSum.data
-        this.expenseCategories = expSum.data.by_category
+          this.todayAttendance = allAttendance.filter(
+            (a) => a.work_date === todayStr,
+          )
 
-        // =============================================================
-        // 6) PAYROLL
-        // =============================================================
-        const payRes = await http.get('/payroll/monthly')
-        this.payroll = payRes.data
-
-        // =============================================================
-        // 7) INVENTORY (valuation + low-stock)
-        // =============================================================
-        const valRes = await http.get('/inventory/valuation')
-        this.inventoryValuation = valRes.data.total_value
-
-        const lowRes = await http.get('/inventory/low-stock')
-        this.lowStockCount = lowRes.data.length
-
-        // =============================================================
-        // 8) STOCK MOVEMENTS (for recent activity)
-        // =============================================================
-        const movRes = await http.get('/stock-movements')
-        this.stockMovements = movRes.data
-        this.latestStockMovements = this.stockMovements.slice(0, 3)
-
-        // =============================================================
-        // 9) SUPPLIERS + overviews
-        // =============================================================
-        const supRes = await http.get('/suppliers')
-        this.suppliers = supRes.data
-
-        const supplierOverviews = []
-        for (const s of this.suppliers) {
-          const ov = await http.get(`/suppliers/${s.id}/overview`)
-          supplierOverviews.push({
-            supplier: s,
-            overview: ov.data,
-          })
+          this.employees = empRes.data || []
+          this.latestEmployees = this.employees.slice(0, 3)
+        } else {
+          this.todayAttendance = []
+          this.employees = []
+          this.latestEmployees = []
         }
-        this.supplierOverviews = supplierOverviews
 
         // =============================================================
-        // 10) ACTIVITY FEED (MERGED)
+        // 4) EXPENSES + SUMMARY (INVENTORY ROLES ONLY)
+        // =============================================================
+        if (canInventory) {
+          const [expRes, expSum] = await Promise.all([
+            http.get('/expenses'),
+            http.get('/expenses/monthly-summary'),
+          ])
+
+          this.expenses = expRes.data || []
+          this.invoicesCount = this.expenses.length
+
+          this.expensesSummary = expSum.data || null
+          this.expenseCategories = this.expensesSummary?.by_category || []
+        } else {
+          this.expenses = []
+          this.expensesSummary = null
+          this.expenseCategories = []
+          this.invoicesCount = 0
+        }
+
+        // =============================================================
+        // 5) PAYROLL (HR ROLES ONLY)
+        // =============================================================
+        if (canHR) {
+          const payRes = await http.get('/payroll/monthly')
+          this.payroll = payRes.data || null
+        } else {
+          this.payroll = null
+        }
+
+        // =============================================================
+        // 6) INVENTORY VALUATION + LOW STOCK (INVENTORY ROLES ONLY)
+        // =============================================================
+        if (canInventory) {
+          const [valRes, lowRes] = await Promise.all([
+            http.get('/inventory/valuation'),
+            http.get('/inventory/low-stock'),
+          ])
+
+          this.inventoryValuation = valRes.data?.total_value || 0
+          this.lowStockCount = (lowRes.data || []).length
+        } else {
+          this.inventoryValuation = 0
+          this.lowStockCount = 0
+        }
+
+        // =============================================================
+        // 7) STOCK MOVEMENTS (INVENTORY ROLES ONLY)
+        // =============================================================
+        if (canInventory) {
+          const movRes = await http.get('/stock-movements')
+          this.stockMovements = movRes.data || []
+          this.latestStockMovements = this.stockMovements.slice(0, 3)
+        } else {
+          this.stockMovements = []
+          this.latestStockMovements = []
+        }
+
+        // =============================================================
+        // 8) SUPPLIERS + OVERVIEWS (INVENTORY ROLES ONLY)
+        // =============================================================
+        if (canInventory) {
+          const supRes = await http.get('/suppliers')
+          this.suppliers = supRes.data || []
+
+          const supplierOverviews = []
+          for (const s of this.suppliers) {
+            try {
+              const ov = await http.get(`/suppliers/${s.id}/overview`)
+              supplierOverviews.push({
+                supplier: s,
+                overview: ov.data,
+              })
+            } catch {
+              // ignore single supplier errors
+            }
+          }
+          this.supplierOverviews = supplierOverviews
+        } else {
+          this.suppliers = []
+          this.supplierOverviews = []
+        }
+
+        // =============================================================
+        // 9) ACTIVITY FEED (MERGED)
         // =============================================================
         this.activityFeed = this.buildActivityFeed()
       } catch (err) {
@@ -158,7 +207,8 @@ export const useDashboardStore = defineStore('dashboard', {
           type: 'employee',
           title: 'New employee added',
           message: `You added “${e.first_name} ${e.last_name}” to HR records.`,
-          date: e.created_at || e.hire_date,
+          // prefer created_at (full datetime), fallback to hire_date
+          date: e.created_at ?? e.hire_date,
         })
       })
 
@@ -168,7 +218,8 @@ export const useDashboardStore = defineStore('dashboard', {
           type: 'expense',
           title: 'Expense registered',
           message: `${ex.category} expense of ${ex.amount} MAD recorded.`,
-          date: ex.expense_date,
+          // prefer created_at (full datetime), fallback to expense_date
+          date: ex.created_at ?? ex.expense_date,
         })
       })
 
@@ -178,32 +229,38 @@ export const useDashboardStore = defineStore('dashboard', {
           type: 'inventory',
           title: 'Stock movement recorded',
           message: `${m.quantity} units of "${m.product?.name}" (${m.type})`,
-          date: m.movement_date,
+          // prefer created_at (full datetime), fallback to movement_date
+          date: m.created_at ?? m.movement_date,
         })
       })
 
-      // Supplier purchases
+      // Supplier purchases from overview
       this.supplierOverviews.forEach((s) => {
-        const pur = s.overview.purchases[0]
+        const pur = s.overview?.purchases?.[0]
         if (pur) {
           feed.push({
             type: 'supplier',
             title: 'Supplier purchase recorded',
             message: `${pur.quantity} units purchased from “${s.supplier.name}”.`,
-            date: pur.movement_date,
+            // prefer created_at, fallback to movement_date
+            date: pur.created_at ?? pur.movement_date,
           })
         }
       })
 
       // sort by date desc, keep last 5 events
       return feed
+        .filter((item) => !!item.date)
         .sort((a, b) => new Date(b.date) - new Date(a.date))
         .slice(0, 5)
     },
 
     // === HELPERS ===
     timeAgo(date) {
-      return dayjs(date).fromNow()
+      if (!date) return '-'
+      const d = dayjs(date)
+      if (!d.isValid()) return '-'
+      return d.fromNow()
     },
 
     percentChange(current, previous) {

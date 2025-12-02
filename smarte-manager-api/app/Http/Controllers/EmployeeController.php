@@ -8,9 +8,11 @@ use Illuminate\Validation\Rule;
 
 class EmployeeController extends Controller
 {
-    /**
-     * List all employees.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    |   index function returen all employees with desc order 
+    |--------------------------------------------------------------------------
+    */ 
     public function index()
     {
         return response()->json(
@@ -18,9 +20,11 @@ class EmployeeController extends Controller
         );
     }
 
-    /**
-     * Create new employee.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | store function create new employee
+    |--------------------------------------------------------------------------
+    */ 
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -38,17 +42,21 @@ class EmployeeController extends Controller
         return response()->json($employee, 201);
     }
 
-    /**
-     * Show one employee.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | show functyion Return all Employees 
+    |--------------------------------------------------------------------------
+    */ 
     public function show(Employee $employee)
     {
         return response()->json($employee);
     }
 
-    /**
-     * Update employee.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | update function update Employee
+    |--------------------------------------------------------------------------
+    */ 
     public function update(Request $request, Employee $employee)
     {
         $data = $request->validate([
@@ -65,10 +73,11 @@ class EmployeeController extends Controller
 
         return response()->json($employee);
     }
-
-    /**
-     * Delete employee.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | destroy function delete Employee
+    |--------------------------------------------------------------------------
+    */ 
     public function destroy(Employee $employee)
     {
         $employee->delete();

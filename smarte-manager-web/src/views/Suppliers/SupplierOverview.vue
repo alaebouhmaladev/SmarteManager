@@ -75,12 +75,12 @@
         </p>
       </div>
 
-      <div class="sm:col-span-2">
+      <!-- <div class="sm:col-span-2">
         <p class="text-xs text-neutral-500">Total spent</p>
         <p class="text-xl font-semibold">
           {{ formatMoney(totals.total_spent || 0) }}
         </p>
-      </div>
+      </div> -->
     </div>
 
     <!-- Purchases table -->

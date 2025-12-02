@@ -9,7 +9,7 @@
           Users
         </h2>
         <p class="text-xs text-neutral-500">
-          Manage admin, manager, and staff accounts.
+          Manage admin, manager, HR, stock manager and staff accounts.
         </p>
       </div>
 
@@ -33,10 +33,13 @@
           class="rounded-xl border border-neutral-200 px-3 py-2 text-xs
                  bg-white focus:outline-none focus:ring-2 focus:ring-sm-yellow focus:border-sm-yellow"
         >
-          <option value="">All roles</option>
-          <option value="admin">Admin</option>
-          <option value="manager">Manager</option>
-          <option value="staff">Staff</option>
+          <option
+            v-for="opt in roleFilterOptions"
+            :key="opt.value"
+            :value="opt.value"
+          >
+            {{ opt.label }}
+          </option>
         </select>
 
         <!-- Search -->
@@ -98,7 +101,7 @@
               </td>
               <td class="px-4 py-2">
                 <span class="sm-badge">
-                  {{ (user.role || '').toUpperCase() }}
+                  {{ roleLabel(user.role) }}
                 </span>
               </td>
               <td class="px-4 py-2 text-right">
@@ -149,7 +152,7 @@
           <InputField
             v-model="form.name"
             label="Full name"
-            placeholder="John Doe"
+            placeholder="Full Name"
             required
           />
 
@@ -157,7 +160,7 @@
             v-model="form.email"
             label="Email"
             type="email"
-            placeholder="john@example.com"
+            placeholder="user@example.com"
             required
           />
 
@@ -173,9 +176,13 @@
               class="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm
                      focus:outline-none focus:ring-2 focus:ring-sm-yellow focus:border-sm-yellow"
             >
-              <option value="admin">Admin</option>
-              <option value="manager">Manager</option>
-              <option value="staff">Staff</option>
+              <option
+                v-for="opt in roleOptions"
+                :key="opt.value"
+                :value="opt.value"
+              >
+                {{ opt.label }}
+              </option>
             </select>
           </div>
 
@@ -231,6 +238,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useUsersStore } from '@/stores/users'
+import { useAuthStore } from '@/stores/auth'
 
 import CardBox from '@/components/ui/CardBox.vue'
 import TableBase from '@/components/ui/TableBase.vue'
@@ -239,6 +247,7 @@ import ModalBase from '@/components/ui/ModalBase.vue'
 import InputField from '@/components/ui/InputField.vue'
 
 const usersStore = useUsersStore()
+const auth = useAuthStore()
 
 const isModalOpen = ref(false)
 const editingUser = ref(null)
@@ -255,9 +264,49 @@ const filters = reactive({
   search: '',
 })
 
+/* ---------------- ROLE OPTIONS ---------------- */
+
+// master list (matches backend: admin, manager, hr, stock_manager, staff)
+const ALL_ROLE_OPTIONS = [
+  { value: 'admin',         label: 'Admin' },
+  { value: 'manager',       label: 'Manager' },
+  { value: 'hr',            label: 'HR' },
+  { value: 'stock_manager', label: 'Stock manager' },
+  { value: 'staff',         label: 'Staff' },
+]
+
+// dropdown in the modal – depends on current user role
+const roleOptions = computed(() => {
+  const currentRole = auth.userRole || auth.user?.role
+
+  // Managers can only create staff accounts (same rule as backend)
+  if (currentRole === 'manager') {
+    return ALL_ROLE_OPTIONS.filter((r) => r.value === 'staff')
+  }
+
+  // Admin (and others) see everything
+  return ALL_ROLE_OPTIONS
+})
+
+// dropdown for filter (always show all roles)
+const roleFilterOptions = [
+  { value: '', label: 'All roles' },
+  ...ALL_ROLE_OPTIONS,
+]
+
+// pretty label for table badge
+const roleLabel = (role) => {
+  const found = ALL_ROLE_OPTIONS.find((r) => r.value === role)
+  return found ? found.label : (role || '').toString().toUpperCase()
+}
+
+/* ---------------- LIFECYCLE ---------------- */
+
 onMounted(() => {
   usersStore.fetchUsers()
 })
+
+/* ---------------- COMPUTED LIST ---------------- */
 
 const filteredUsers = computed(() => {
   let list = usersStore.users || []
@@ -271,12 +320,14 @@ const filteredUsers = computed(() => {
     list = list.filter(
       (u) =>
         u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q)
+        u.email.toLowerCase().includes(q),
     )
   }
 
   return list
 })
+
+/* ---------------- MODAL HANDLERS ---------------- */
 
 const resetForm = () => {
   form.name = ''
@@ -303,6 +354,8 @@ const openEdit = (user) => {
 const closeModal = () => {
   isModalOpen.value = false
 }
+
+/* ---------------- SUBMIT / DELETE ---------------- */
 
 const handleSubmit = async () => {
   if (usersStore.saving) return

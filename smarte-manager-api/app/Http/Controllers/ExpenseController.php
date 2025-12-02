@@ -9,9 +9,12 @@ use Carbon\Carbon;
 
 class ExpenseController extends Controller
 {
-    /**
-     * List all expenses (latest first).
-     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | index function List all expenses from latest to first
+    |--------------------------------------------------------------------------
+    */
     public function index(): JsonResponse
     {
         $expenses = Expense::with('supplier')
@@ -21,20 +24,22 @@ class ExpenseController extends Controller
 
         return response()->json($expenses);
     }
-
-    /**
-     * Show a single expense.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | show function use supplier id to return expense data
+    |--------------------------------------------------------------------------
+    */
     public function show($id): JsonResponse
     {
         $expense = Expense::with('supplier')->findOrFail($id);
 
         return response()->json($expense);
     }
-
-    /**
-     * Create a new expense.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | store function create a new expense
+    |--------------------------------------------------------------------------
+    */
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -52,10 +57,11 @@ class ExpenseController extends Controller
             201
         );
     }
-
-    /**
-     * Update an existing expense.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | update function updating an existing expense with id
+    |--------------------------------------------------------------------------
+    */ 
     public function update(Request $request, $id): JsonResponse
     {
         $data = $request->validate([
@@ -71,10 +77,11 @@ class ExpenseController extends Controller
 
         return response()->json($expense->load('supplier'));
     }
-
-    /**
-     * Delete an expense.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | destroy function Delete an existing expense with id
+    |--------------------------------------------------------------------------
+    */ 
     public function destroy($id): JsonResponse
     {
         $expense = Expense::findOrFail($id);
@@ -84,18 +91,15 @@ class ExpenseController extends Controller
             'message' => 'Expense deleted',
         ]);
     }
-
-    /**
-     * Monthly summary:
-     * GET /api/expenses/monthly-summary?month=2025-11
-     * Returns:
-     * - total for month
-     * - totals per category
-     */
+    /*
+    |----------------------------------------------------------------------------------------
+    | monthlySummary function returen Monthly summary (total for month, totals per category)
+    |----------------------------------------------------------------------------------------
+    */
     public function monthlySummary(Request $request): JsonResponse
     {
         $request->validate([
-            'month' => 'nullable|date_format:Y-m', // e.g. 2025-11
+            'month' => 'nullable|date_format:Y-m', 
         ]);
 
         $monthParam = $request->query('month') ?? Carbon::now()->format('Y-m');
@@ -108,7 +112,6 @@ class ExpenseController extends Controller
 
         $total = $allExpenses->sum('amount');
 
-        // Group by category
         $byCategory = $allExpenses->groupBy('category')->map(function ($items, $category) {
             return [
                 'category' => $category,
@@ -122,11 +125,11 @@ class ExpenseController extends Controller
             'by_category' => $byCategory,
         ]);
     }
-
-    /**
-     * Expenses by supplier:
-     * GET /api/expenses/by-supplier/{supplier}?from=&to=
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | bySupplier function return expenses by supplier id 
+    |--------------------------------------------------------------------------
+    */ 
     public function bySupplier(Request $request, $supplierId): JsonResponse
     {
         $request->validate([
@@ -164,10 +167,11 @@ class ExpenseController extends Controller
         ]);
     }
 
-    /**
-     * Export monthly expenses as CSV (optional).
-     * GET /api/expenses/export-csv?month=2025-11
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Export monthly expenses CSV file not work
+    |--------------------------------------------------------------------------
+    */ 
     public function exportMonthlyCsv(Request $request)
     {
         $request->validate([
@@ -193,7 +197,6 @@ class ExpenseController extends Controller
         $callback = function () use ($expenses) {
             $handle = fopen('php://output', 'w');
 
-            // Header row
             fputcsv($handle, [
                 'Date',
                 'Category',

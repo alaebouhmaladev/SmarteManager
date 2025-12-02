@@ -82,7 +82,7 @@ import { computed } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
-// Icons from heroicons libary
+// Icons from heroicons library
 import {
   HomeIcon,
   UsersIcon,
@@ -91,7 +91,7 @@ import {
   ArchiveBoxIcon,
   BuildingStorefrontIcon,
   BanknotesIcon,
-  CurrencyDollarIcon, 
+  CurrencyDollarIcon,
 } from '@heroicons/vue/24/outline'
 
 const props = defineProps({
@@ -110,69 +110,138 @@ const year = new Date().getFullYear()
 
 const currentRole = computed(() => auth.user?.role || null)
 
+/**
+ * Build nav depending on role
+ */
 const navItems = computed(() => {
-  const base = [
-    {
-      name: 'dashboard',
-      label: 'Dashboard',
-      icon: HomeIcon,
-      to: { name: 'dashboard' },
-    },
-    {
-      name: 'users',
-      label: 'Users',
-      icon: UsersIcon,
-      to: { name: 'users' },
-      roles: ['admin', 'manager'],
-    },
-    {
-      name: 'employees',
-      label: 'Employees',
-      icon: UserGroupIcon,
-      to: { name: 'employees' },
-    },
-    {
-      name: 'attendance',
-      label: 'Attendance',
-      icon: ClockIcon,
-      to: { name: 'attendance' },
-      children: ['my-attendance'],
-    },
-    {
-      name: 'payroll',                         
-      label: 'Payroll',
-      icon: CurrencyDollarIcon,
-      to: { name: 'payroll' },
-    },
-    {
-      name: 'inventory',
-      label: 'Inventory',
-      icon: ArchiveBoxIcon,
-      to: { name: 'inventory' },
-      children: ['products', 'product-history'],
-    },
-    {
-      name: 'suppliers',
-      label: 'Suppliers',
-      icon: BuildingStorefrontIcon,
-      to: { name: 'suppliers' },
-      children: ['supplier-overview'],
-    },
-    {
-      name: 'expenses',
-      label: 'Expenses',
-      icon: BanknotesIcon,
-      to: { name: 'expenses' },
-    },
-  ]
+  const role = currentRole.value
 
-  // In dev-bypass mode (no user) show everything
-  if (!currentRole.value) return base
+  // Base items we re-use for different roles
+  const dashboard = {
+    name: 'dashboard',
+    label: 'Dashboard',
+    icon: HomeIcon,
+    to: { name: 'dashboard' },
+  }
 
-  // Filter by roles when user exists
-  return base.filter(
-    (item) => !item.roles || item.roles.includes(currentRole.value)
-  )
+  const users = {
+    name: 'users',
+    label: 'Users',
+    icon: UsersIcon,
+    to: { name: 'users' },
+  }
+
+  const employees = {
+    name: 'employees',
+    label: 'Employees',
+    icon: UserGroupIcon,
+    to: { name: 'employees' },
+  }
+
+  const attendance = {
+    name: 'attendance',
+    label: 'Attendance',
+    icon: ClockIcon,
+    to: { name: 'attendance' },
+    children: ['my-attendance'],
+  }
+
+  const myAttendance = {
+    name: 'my-attendance',
+    label: 'My attendance',
+    icon: ClockIcon,
+    to: { name: 'my-attendance' },
+  }
+
+  const payroll = {
+    name: 'payroll',
+    label: 'Payroll',
+    icon: CurrencyDollarIcon,
+    to: { name: 'payroll' },
+  }
+
+  const inventory = {
+    name: 'inventory',
+    label: 'Inventory',
+    icon: ArchiveBoxIcon,
+    to: { name: 'inventory' },
+    children: ['products', 'product-history'],
+  }
+
+  const suppliers = {
+    name: 'suppliers',
+    label: 'Suppliers',
+    icon: BuildingStorefrontIcon,
+    to: { name: 'suppliers' },
+    children: ['supplier-overview'],
+  }
+
+  const expenses = {
+    name: 'expenses',
+    label: 'Expenses',
+    icon: BanknotesIcon,
+    to: { name: 'expenses' },
+  }
+
+  // When dev-bypass is active and we don't know the role yet → show everything
+  if (!role) {
+    return [
+      dashboard,
+      users,
+      employees,
+      attendance,
+      payroll,
+      inventory,
+      suppliers,
+      expenses,
+    ]
+  }
+
+  // ADMIN: full access
+  if (role === 'admin') {
+    return [
+      dashboard,
+      users,
+      employees,
+      attendance,
+      payroll,
+      inventory,
+      suppliers,
+      expenses,
+    ]
+  }
+
+  // MANAGER: everything except maybe some future admin-only pages
+  if (role === 'manager') {
+    return [
+      dashboard,
+      users,
+      employees,
+      attendance,
+      payroll,
+      inventory,
+      suppliers,
+      expenses,
+    ]
+  }
+
+  // HR: HR-only pages
+  if (role === 'hr') {
+    return [dashboard, employees, attendance, payroll]
+  }
+
+  // STOCK MANAGER: inventory & purchasing only
+  if (role === 'stock_manager') {
+    return [dashboard, inventory, suppliers, expenses]
+  }
+
+  // STAFF: only dashboard + personal attendance
+  if (role === 'staff') {
+    return [dashboard, myAttendance]
+  }
+
+  // Fallback: just dashboard
+  return [dashboard]
 })
 
 const isActive = (item) => {

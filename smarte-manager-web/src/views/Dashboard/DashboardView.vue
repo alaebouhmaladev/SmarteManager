@@ -11,15 +11,19 @@
         </p>
       </div>
 
-      <PrimaryButton variant="primary" @click="onQuickAction">
+      <PrimaryButton 
+        v-if="canSeeHR" 
+        variant="primary" 
+        @click="onQuickAction"
+      >
         Add New Employee
       </PrimaryButton>
     </div>
 
-    <!-- Stats cards -->
+    <!-- Top stats cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <!-- Total employees -->
-      <div class="sm-card p-5 flex flex-col gap-2">
+      <!-- HR: employees -->
+      <div v-if="canSeeHR" class="sm-card p-5 flex flex-col gap-2">
         <div class="flex items-center justify-between">
           <p class="text-xs text-neutral-500">Total employees</p>
           <span class="text-[10px] px-2 py-1 rounded-full bg-sm-cream text-sm-dark">
@@ -31,8 +35,8 @@
         </p>
       </div>
 
-      <!-- Attendance today (numbers) -->
-      <div class="sm-card p-5 flex flex-col gap-2">
+      <!-- HR: attendance today -->
+      <div v-if="canSeeHR" class="sm-card p-5 flex flex-col gap-2">
         <div class="flex items-center justify-between">
           <p class="text-xs text-neutral-500">Attendance today</p>
           <span class="text-[10px] px-2 py-1 rounded-full bg-sm-cream text-sm-dark">
@@ -48,8 +52,8 @@
         </p>
       </div>
 
-      <!-- Stock valuation -->
-      <div class="sm-card p-5 flex flex-col gap-2">
+      <!-- Inventory: stock valuation -->
+      <div v-if="canSeeInventory" class="sm-card p-5 flex flex-col gap-2">
         <div class="flex items-center justify-between">
           <p class="text-xs text-neutral-500">Stock valuation</p>
           <span class="text-[10px] px-2 py-1 rounded-full bg-sm-cream text-sm-dark">
@@ -61,8 +65,8 @@
         </p>
       </div>
 
-      <!-- Monthly expenses -->
-      <div class="sm-card p-5 flex flex-col gap-2">
+      <!-- Inventory: monthly expenses -->
+      <div v-if="canSeeInventory" class="sm-card p-5 flex flex-col gap-2">
         <div class="flex items-center justify-between">
           <p class="text-xs text-neutral-500">Monthly expenses</p>
           <span class="text-[10px] px-2 py-1 rounded-full bg-sm-cream text-sm-dark">
@@ -75,10 +79,10 @@
       </div>
     </div>
 
-    <!-- Charts area -->
+    <!-- Middle row: Attendance table + Expenses by supplier -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <!-- Attendance today (DETAIL TABLE) – unchanged -->
-      <div class="sm-card p-5 lg:col-span-2">
+      <!-- Attendance table (HR only) -->
+      <div v-if="canSeeHR" class="sm-card p-5 lg:col-span-2">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-semibold text-sm-dark dark:text-neutral-50">
             Attendance today
@@ -147,8 +151,12 @@
         </p>
       </div>
 
-      <!-- Expenses by supplier -->
-      <div class="sm-card p-5">
+      <!-- Expenses by supplier (Inventory roles only) -->
+      <div
+        v-if="canSeeInventory"
+        class="sm-card p-5"
+        :class="{ 'lg:col-span-3': !canSeeHR }"
+      >
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-semibold text-sm-dark dark:text-neutral-50">
             Expenses by supplier
@@ -195,7 +203,7 @@
       </div>
     </div>
 
-    <!-- Recent activity -->
+    <!-- Recent activity (everyone) -->
     <div class="sm-card p-5">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-sm font-semibold text-sm-dark dark:text-neutral-50">
@@ -237,10 +245,23 @@ const router = useRouter()
 const dashboardStore = useDashboardStore()
 const authStore = useAuthStore()
 
+/* ---------- Role Based Access Logic ---------- */
+
+const currentUserRole = computed(() => authStore.user?.role || '')
+
+const canSeeHR = computed(() => {
+  const role = currentUserRole.value
+  return ['admin', 'manager', 'hr'].includes(role)
+})
+
+const canSeeInventory = computed(() => {
+  const role = currentUserRole.value
+  return ['admin', 'manager', 'stock_manager'].includes(role)
+})
+
 /* ---------- Top stats ---------- */
 
 const userName = computed(() => {
-  // Prefer auth store, then dashboard.me, fallback to "Nabil"
   const full =
     authStore.user?.name ||
     dashboardStore.me?.name ||
@@ -250,7 +271,9 @@ const userName = computed(() => {
 })
 
 const expensesBySupplier = computed(() => {
-  // Support different naming in store (expenses or expensesList, suppliers or suppliersList)
+  // If role cannot see inventory/finance, return empty
+  if (!canSeeInventory.value) return []
+
   const expenses =
     dashboardStore.expenses ||
     dashboardStore.expensesList ||
@@ -261,10 +284,9 @@ const expensesBySupplier = computed(() => {
     dashboardStore.suppliersList ||
     []
 
-  // Use current month from summary or today
   const monthStr =
     dashboardStore.expensesSummary?.month ||
-    new Date().toISOString().slice(0, 7) // YYYY-MM
+    new Date().toISOString().slice(0, 7)
 
   const map = new Map()
 
@@ -318,6 +340,9 @@ const stats = computed(() => {
   const todayCheckins = data.attendance?.today_checkins ?? 0
   const currentlyPresent = data.attendance?.currently_present ?? 0
 
+  const stockVal = data.inventory?.total_value ?? 0
+  const expensesTotal = data.expenses?.total_this_month ?? 0
+
   const topSupName = expensesBySupplier.value[0]?.name || '—'
 
   return {
@@ -329,17 +354,17 @@ const stats = computed(() => {
       late: 0,
       absent: Math.max(totalEmployees - todayCheckins, 0),
     },
-    stockValuation: data.inventory?.total_value ?? 0,
+    stockValuation: stockVal,
     stockChange: 0,
     expensesMonth: {
-      total: data.expenses?.total_this_month ?? 0,
+      total: expensesTotal,
       invoices: dashboardStore.invoicesCount ?? 0,
       topSupplier: topSupName,
     },
   }
 })
 
-/* ---------- Today attendance detailed table (unchanged) ---------- */
+/* ---------- Today attendance detailed table ---------- */
 
 const todayDateFormatted = computed(() =>
   new Date().toLocaleDateString('en-GB', {
@@ -351,6 +376,8 @@ const todayDateFormatted = computed(() =>
 )
 
 const todayAttendanceRows = computed(() => {
+  if (!canSeeHR.value) return []
+
   const list = dashboardStore.todayAttendance || []
   return list.map((a) => {
     const employeeName = a.employee
@@ -372,7 +399,9 @@ const todayAttendanceRows = computed(() => {
       : ''
 
     const totalHours =
-      a.total_hours != null ? a.total_hours.toFixed(2) + 'h' : '0.00h'
+      a.total_hours != null 
+        ? Number(a.total_hours).toFixed(2) + 'h' 
+        : '0.00h'
 
     let status = 'Absent'
     if (a.check_in && !a.check_out) status = 'Present'
@@ -408,7 +437,7 @@ function formatMoney(value) {
     style: 'currency',
     currency: 'MAD',
     maximumFractionDigits: 0,
-  }).format(value)
+  }).format(Number(value) || 0)
 }
 
 function onQuickAction() {
@@ -417,6 +446,13 @@ function onQuickAction() {
 
 /* ---------- Init ---------- */
 onMounted(() => {
-  dashboardStore.loadDashboard()
+  // This will call loadDashboard(). The store itself decides which
+  // API endpoints to hit depending on the user role (no /expenses for HR/staff).
+  dashboardStore.loadDashboard().catch((err) => {
+    console.warn(
+      'Some dashboard data could not be loaded (likely permissions):',
+      err.message,
+    )
+  })
 })
 </script>

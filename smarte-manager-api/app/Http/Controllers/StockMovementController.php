@@ -11,6 +11,11 @@ use Carbon\Carbon;
 
 class StockMovementController extends Controller
 {
+    /*
+    |--------------------------------------------------------------------------
+    | index function return list off all stock movement desc 
+    |--------------------------------------------------------------------------
+    */
     public function index(): JsonResponse
     {
         $movements = StockMovement::with(['product', 'supplier'])
@@ -20,7 +25,11 @@ class StockMovementController extends Controller
 
         return response()->json($movements);
     }
-
+    /*
+    |--------------------------------------------------------------------------
+    | store function create a new stock movement  
+    |--------------------------------------------------------------------------
+    */
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -28,7 +37,7 @@ class StockMovementController extends Controller
             'supplier_id'   => 'nullable|exists:suppliers,id',
             'type'          => 'required|in:in,out',
             'quantity'      => 'required|numeric|min:0.01',
-            'unit_price'    => 'nullable|numeric|min:0', // for IN
+            'unit_price'    => 'nullable|numeric|min:0', 
             'movement_date' => 'nullable|date',
             'reason'        => 'nullable|string|max:255',
         ]);
@@ -36,13 +45,12 @@ class StockMovementController extends Controller
         $product = Product::findOrFail($data['product_id']);
         $qty     = $data['quantity'];
 
-        // Default date = today if not provided
         $data['movement_date'] = $data['movement_date']
             ?? Carbon::now()->toDateString();
 
-        // ---------- OUT movement (remove stock) ----------
+        // ---------- OUT movement ----------
         if ($data['type'] === 'out') {
-            // Prevent negative stock
+
             if ($product->current_stock < $qty) {
                 return response()->json([
                     'message' => 'Not enough stock for this product.',
@@ -50,11 +58,11 @@ class StockMovementController extends Controller
             }
 
             $product->current_stock -= $qty;
-            // average_cost stays same on OUT
 
-        // ---------- IN movement (add stock) ----------
+            
+        // ---------- IN movement ----------
         } else {
-            // For IN: unit_price should be provided
+
             $unitPrice = $data['unit_price'];
 
             if ($unitPrice === null) {
@@ -71,13 +79,13 @@ class StockMovementController extends Controller
             $newQty = $currentQty + $incomingQty;
 
             if ($newQty > 0) {
-                // Moving average cost
-                $newAvgCost = (
-                    ($currentQty * $currentCost) +
-                    ($incomingQty * $incomingCost)
-                ) / $newQty;
+
+                $newAvgCost = ( ($currentQty * $currentCost) + ($incomingQty * $incomingCost) ) / $newQty;
+
             } else {
+
                 $newAvgCost = $incomingCost;
+
             }
 
             $product->current_stock = $newQty;
@@ -86,10 +94,8 @@ class StockMovementController extends Controller
 
         $product->save();
 
-        // Save movement itself
         $movement = StockMovement::create($data);
 
-        // ✅ NEW: auto-create an expense for stock IN movements
         if (
             $movement->type === 'in' &&
             $movement->supplier_id &&
@@ -98,7 +104,7 @@ class StockMovementController extends Controller
             $totalCost = $movement->quantity * $movement->unit_price;
 
             Expense::create([
-                'category'     => 'Stock purchase In', // change label if you want
+                'category'     => 'Stock purchase In', 
                 'amount'       => $totalCost,
                 'expense_date' => $movement->movement_date ?? Carbon::now()->toDateString(),
                 'supplier_id'  => $movement->supplier_id,

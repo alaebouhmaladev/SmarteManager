@@ -12,10 +12,11 @@ use Carbon\Carbon;
 
 class InventoryController extends Controller
 {
-    /**
-     * GET /api/inventory/overview
-     * List all products with stock + value.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | overview function return all products with stock + value
+    |--------------------------------------------------------------------------
+    */ 
     public function overview(): JsonResponse
     {
         $products = Product::select(
@@ -40,10 +41,11 @@ class InventoryController extends Controller
         return response()->json($products);
     }
 
-    /**
-     * GET /api/inventory/low-stock
-     * Products where current_stock <= min_stock.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | lowStock function return worning about low stock 
+    |--------------------------------------------------------------------------
+    */ 
     public function lowStock(): JsonResponse
     {
         $products = Product::whereColumn('current_stock', '<=', 'min_stock')
@@ -61,10 +63,11 @@ class InventoryController extends Controller
         return response()->json($products);
     }
 
-    /**
-     * GET /api/inventory/valuation
-     * Total value of inventory (current_stock * average_cost).
-     */
+    /*
+    |-----------------------------------------------------------------------------------
+    | valuation function return Total value of inventory (current_stock * average_cost) 
+    |-----------------------------------------------------------------------------------
+    */ 
     public function valuation(): JsonResponse
     {
         $total = Product::select(
@@ -77,10 +80,11 @@ class InventoryController extends Controller
         ]);
     }
 
-    /**
-     * GET /api/inventory/average-cost
-     * Returns only product average costs.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | averageCost function return only product average costs 
+    |--------------------------------------------------------------------------
+    */ 
     public function averageCost(): JsonResponse
     {
         $products = Product::select(
@@ -95,11 +99,11 @@ class InventoryController extends Controller
 
         return response()->json($products);
     }
-
-    /**
-     * GET /api/inventory/product/{product}/history
-     * Optional query params: from=Y-m-d, to=Y-m-d
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | productHistory function return product history 
+    |--------------------------------------------------------------------------
+    */ 
     public function productHistory(Request $request, $productId): JsonResponse
     {
         $request->validate([
@@ -115,13 +119,11 @@ class InventoryController extends Controller
             ? Carbon::parse($request->query('to'))->endOfDay()
             : null;
 
-        // Base query: all movements for this product
         $query = StockMovement::with('supplier')
             ->where('product_id', $productId)
             ->orderBy('movement_date', 'desc')
             ->orderBy('id', 'desc');
 
-        // Apply date range if provided
         if ($from && $to) {
             $query->whereBetween('movement_date', [
                 $from->toDateString(),
@@ -135,7 +137,6 @@ class InventoryController extends Controller
 
         $movements = $query->get();
 
-        // Include basic product info
         $product = Product::select('id', 'name', 'sku', 'unit', 'current_stock', 'average_cost')
             ->findOrFail($productId);
 

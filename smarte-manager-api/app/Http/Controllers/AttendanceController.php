@@ -8,16 +8,23 @@ use Carbon\Carbon;
 
 class AttendanceController extends Controller
 {
-    /**
-     * Employee check-in
-     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Employee check-in
+    |--------------------------------------------------------------------------
+    */
     public function checkIn(Request $request)
     {
         $request->validate([
             'employee_id' => 'required|exists:employees,id',
         ]);
 
-        // Prevent multiple open check-ins
+        /*
+        |--------------------------------------------------------------------------
+        | Check if multiple check-ins
+        |--------------------------------------------------------------------------
+        */
         $existing = Attendance::where('employee_id', $request->employee_id)
             ->whereNull('check_out')
             ->first();
@@ -37,9 +44,11 @@ class AttendanceController extends Controller
         return response()->json($attendance);
     }
 
-    /**
-     * Employee check-out
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Employee check-out operation 
+    |--------------------------------------------------------------------------
+    */
     public function checkOut(Request $request)
     {
         $request->validate([
@@ -66,9 +75,11 @@ class AttendanceController extends Controller
         return response()->json($attendance);
     }
 
-    /**
-     * List all attendance records from latest to first
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | List of all attendance from latest to first
+    |--------------------------------------------------------------------------
+    */
     public function index()
     {
         return response()->json(
@@ -78,10 +89,11 @@ class AttendanceController extends Controller
         );
     }
 
-    /**
-     * Attendance history by employee & date range
-     * GET /api/attendances/employee/{employee}?from=2025-11-01&to=2025-11-30
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Attendance history by employee
+    |--------------------------------------------------------------------------
+    */
     public function byEmployee(Request $request, $employeeId)
     {
         $request->validate([
@@ -111,11 +123,11 @@ class AttendanceController extends Controller
         ]);
     }
 
-    /**
-     * Daily attendance for all employees
-     * GET /api/attendances/daily?date=2025-11-20
-     * If no date → today
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Daily attendance for all employees
+    |--------------------------------------------------------------------------
+    */
     public function daily(Request $request)
     {
         $request->validate([
@@ -137,14 +149,15 @@ class AttendanceController extends Controller
         ]);
     }
 
-    /**
-     * Monthly summary: total hours per employee
-     * GET /api/attendances/monthly-summary?month=2025-11
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | total hours per employee
+    |--------------------------------------------------------------------------
+    */
     public function monthlySummary(Request $request)
     {
         $request->validate([
-            'month' => 'nullable|date_format:Y-m', // e.g. 2025-11
+            'month' => 'nullable|date_format:Y-m',
         ]);
 
         $monthParam = $request->query('month') ?? Carbon::now()->format('Y-m');
@@ -154,8 +167,11 @@ class AttendanceController extends Controller
             ->whereYear('work_date', $year)
             ->whereMonth('work_date', $month)
             ->get();
-
-        // Group by employee and sum hours
+        /*
+        |--------------------------------------------------------------------------
+        | Group by employee and sum hours
+        |--------------------------------------------------------------------------
+        */
         $summary = $records->groupBy('employee_id')->map(function ($items) {
             $employee   = $items->first()->employee;
             $totalHours = $items->sum('total_hours');
@@ -173,10 +189,11 @@ class AttendanceController extends Controller
         ]);
     }
 
-    /**
-     * Export monthly attendance as CSV
-     * GET /api/attendances/export-csv?month=2025-11
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | CSV export not like to frentewnd
+    |--------------------------------------------------------------------------
+    */
     public function exportMonthlyCsv(Request $request)
     {
         $request->validate([
@@ -201,7 +218,7 @@ class AttendanceController extends Controller
 
         $callback = function () use ($records) {
             $handle = fopen('php://output', 'w');
-            // header row
+           
             fputcsv($handle, [
                 'Date',
                 'Employee',
@@ -254,8 +271,12 @@ class AttendanceController extends Controller
             ->whereBetween('work_date', [$from->toDateString(), $to->toDateString()])
             ->orderBy('work_date', 'DESC')
             ->get();
-
-        // fallback if no attendance yet    
+  
+        /*
+        |--------------------------------------------------------------------------
+        | fallback if no attendance yet  
+        |--------------------------------------------------------------------------
+        */  
         $employee = $records->first()->employee
             ?? $user->employee; 
 
